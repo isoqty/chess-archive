@@ -52,12 +52,12 @@ class Chess {
 
     algebraicToCoords(algebraic) {
         const file = algebraic.charCodeAt(0) - 97;
-        const rank = parseInt(algebraic[1]) - 1;
+        const rank = 8 - parseInt(algebraic[1]);
         return [file, rank];
     }
 
     coordsToAlgebraic(file, rank) {
-        return String.fromCharCode(97 + file) + (rank + 1);
+        return String.fromCharCode(97 + file) + (8 - rank);
     }
 
     findKing(color) {
@@ -81,25 +81,25 @@ class Chess {
         for (const [df, dr] of directions) {
             let f = file + df;
             let r = rank + dr;
+            let dist = 1;
             while (f >= 0 && f < 8 && r >= 0 && r < 8) {
                 const p = this.board[r][f];
                 if (p) {
                     if (p.color === byColor) {
-                        if (p.type === 'k' && Math.abs(df) <= 1 && Math.abs(dr) <= 1) return true;
+                        if (p.type === 'k' && dist === 1) return true;
                         if (p.type === 'q') return true;
                         if (p.type === 'r' && (df === 0 || dr === 0)) return true;
                         if (p.type === 'b' && df !== 0 && dr !== 0) return true;
-                        if (p.type === 'p') {
+                        if (p.type === 'p' && dist === 1) {
                             const pawnDir = byColor === 'w' ? 1 : -1;
                             if (dr === pawnDir && Math.abs(df) === 1) return true;
                         }
                     }
-                    if (!(p.color === byColor && p.type === 'k' && Math.abs(df) <= 1 && Math.abs(dr) <= 1)) {
-                        break;
-                    }
+                    break;
                 }
                 f += df;
                 r += dr;
+                dist++;
             }
         }
 
@@ -419,9 +419,9 @@ class Chess {
                 if (!sameFile) {
                     san += String.fromCharCode(97 + move.from[0]);
                 } else if (!sameRank) {
-                    san += (move.from[1] + 1);
+                    san += (8 - move.from[1]);
                 } else {
-                    san += String.fromCharCode(97 + move.from[0]) + (move.from[1] + 1);
+                    san += String.fromCharCode(97 + move.from[0]) + (8 - move.from[1]);
                 }
             }
         } else {
@@ -449,6 +449,7 @@ class Chess {
         const rows = parts[0].split('/');
 
         for (let r = 0; r < 8; r++) {
+            this.board[r].fill(null);
             let f = 0;
             for (const ch of rows[r]) {
                 if (ch >= '1' && ch <= '8') {

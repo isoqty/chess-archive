@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NBC3 Official</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <header>
+        <div class="header-content">
+            <h1>♔ NBC3 Official</h1>
+            <nav>
+                <a href="#" class="nav-link active" data-page="archive">Archive</a>
+                <a href="#" class="nav-link" data-page="players">Players</a>
+                <a href="#" class="nav-link" data-page="leaderboard">Leaderboard</a>
+                <a href="#" class="nav-link" data-page="stats">Statistics</a>
+                <a href="#" class="nav-link" data-page="admin">Admin</a>
+            </nav>
+        </div>
+    </header>
+
+    <main>
+        <!-- Archive Page -->
+        <div id="page-archive" class="page active">
+            <div class="archive-layout">
+                <div class="board-section">
+                    <div class="board-container">
+                        <div id="player-top" class="player-bar">
+                            <span class="player-name">Black</span>
+                            <span class="player-rating"></span>
+                        </div>
+                        <div id="chessboard"></div>
+                        <div id="player-bottom" class="player-bar">
+                            <span class="player-name">White</span>
+                            <span class="player-rating"></span>
+                        </div>
+                    </div>
+                    <div class="controls">
+                        <button id="btn-start" title="Go to start">⏮</button>
+                        <button id="btn-prev" title="Previous move">◀</button>
+                        <button id="btn-next" title="Next move">▶</button>
+                        <button id="btn-end" title="Go to end">⏭</button>
+                        <button id="btn-flip" title="Flip board">🔄</button>
+                        <button id="btn-auto" title="Auto play">▶▶</button>
+                    </div>
+                    <div id="game-info" class="game-info">
+                        <div class="info-row"><span class="info-label">Event:</span> <span id="info-event">-</span></div>
+                        <div class="info-row"><span class="info-label">Date:</span> <span id="info-date">-</span></div>
+                        <div class="info-row"><span class="info-label">Result:</span> <span id="info-result">-</span></div>
+                        <div class="info-row"><span class="info-label">ECO:</span> <span id="info-eco">-</span></div>
+                    </div>
+                    <div id="move-list-area"></div>
+                </div>
+                <div class="sidebar">
+                    <div class="filter-box">
+                        <input type="text" id="search-input" placeholder="Search players, events, openings...">
+                        <select id="filter-eco">
+                            <option value="">All Openings</option>
+                        </select>
+                        <select id="filter-year">
+                            <option value="">All Years</option>
+                        </select>
+                    </div>
+                    <div id="game-list" class="game-list">
+                        <p class="empty-state">No games yet. Upload PGN files in Admin panel.</p>
+                    </div>
+                    <div id="pagination" class="pagination"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Players Page -->
+        <div id="page-players" class="page">
+            <div class="players-layout">
+                <div class="players-header">
+                    <h2>Players</h2>
+                    <input type="text" id="player-search" placeholder="Search players...">
+                </div>
+                <div id="player-grid" class="player-grid">
+                    <p class="empty-state">No players yet.</p>
+                </div>
+            </div>
+            <!-- Player Detail Modal -->
+            <div id="player-modal" class="modal" style="display:none">
+                <div class="modal-content">
+                    <span class="modal-close">&times;</span>
+                    <div id="player-detail"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Stats Page -->
+        <div id="page-stats" class="page">
+            <h2>Statistics</h2>
+            <div id="stats-content" class="stats-grid">
+                <p class="empty-state">Loading statistics...</p>
+            </div>
+        </div>
+
+        <!-- Leaderboard Page -->
+        <div id="page-leaderboard" class="page">
+            <h2>Leaderboard</h2>
+            <p class="leaderboard-subtitle">Players ranked by total rating (Rapid + Blitz + Classical + Bullet + Chess960)</p>
+            <div id="leaderboard-content" class="leaderboard-table-wrap">
+                <p class="empty-state">Loading leaderboard...</p>
+            </div>
+        </div>
+
+        <!-- Admin Page -->
+        <div id="page-admin" class="page">
+            <!-- Login Form -->
+            <div id="admin-login" class="admin-section">
+                <h2>Admin Login</h2>
+                <form id="login-form">
+                    <div class="form-group">
+                        <label>Username</label>
+                        <input type="text" id="login-username" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Password</label>
+                        <input type="password" id="login-password" required>
+                    </div>
+                    <button type="submit" class="btn-primary">Login</button>
+                    <p id="login-error" class="error-text"></p>
+                </form>
+            </div>
+
+            <!-- Admin Dashboard (hidden until logged in) -->
+            <div id="admin-dashboard" class="admin-section" style="display:none">
+                <div class="admin-header">
+                    <h2>Admin Dashboard</h2>
+                    <button id="btn-logout" class="btn-secondary">Logout</button>
+                </div>
+
+                <div class="admin-tabs">
+                    <button class="tab-btn active" data-tab="upload-pgn">Upload PGN</button>
+                    <button class="tab-btn" data-tab="add-player">Add Player</button>
+                    <button class="tab-btn" data-tab="manage-players">Manage Players</button>
+                    <button class="tab-btn" data-tab="manage-games">Manage Games</button>
+                </div>
+
+                <!-- Upload PGN Tab -->
+                <div id="tab-upload-pgn" class="tab-content active">
+                    <div class="admin-grid">
+                        <div class="upload-section">
+                            <h3>Upload .pgn File</h3>
+                            <div class="upload-area" id="pgn-upload-area">
+                                <p>Drag & drop .pgn files here or click to browse</p>
+                                <input type="file" id="pgn-file-input" accept=".pgn" multiple hidden>
+                            </div>
+                        </div>
+                        <div class="upload-section">
+                            <h3>Paste PGN Text</h3>
+                            <textarea id="pgn-text-input" placeholder="[Event &quot;My Game&quot;]
+[White &quot;Player 1&quot;]
+[Black &quot;Player 2&quot;]
+[Result &quot;1-0&quot;]
+
+1. e4 e5 2. Nf3 Nc6 1-0"></textarea>
+                            <button id="btn-parse-pgn" class="btn-primary">Parse & Save</button>
+                        </div>
+                    </div>
+                    <div id="upload-status" class="upload-status"></div>
+                </div>
+
+                <!-- Add Player Tab -->
+                <div id="tab-add-player" class="tab-content">
+                    <form id="player-form" class="player-form">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Name *</label>
+                                <input type="text" id="player-name" required>
+                            </div>
+                            <div class="form-group">
+                                <label>Title</label>
+                                <select id="player-title">
+                                    <option value="">None</option>
+                                    <option value="GM">GM - Grandmaster</option>
+                                    <option value="IM">IM - International Master</option>
+                                    <option value="FM">FM - FIDE Master</option>
+                                    <option value="CM">CM - Candidate Master</option>
+                                    <option value="WGM">WGM - Woman Grandmaster</option>
+                                    <option value="WIM">WIM - Woman International Master</option>
+                                    <option value="WFM">WFM - Woman FIDE Master</option>
+                                    <option value="WCM">WCM - Woman Candidate Master</option>
+                                    <option value="NM">NM - National Master</option>
+                                    <option value="AI">AI - Artist International</option>
+                                    <option value="DI">DI - Development International</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Country</label>
+                                <input type="text" id="player-country" placeholder="e.g. USA">
+                            </div>
+                            <div class="form-group">
+                                <label>Birth Year</label>
+                                <input type="number" id="player-birth" min="1800" max="2026">
+                            </div>
+                            <div class="form-group">
+                                <label>Status</label>
+                                <select id="player-status">
+                                    <option value="active">Active</option>
+                                    <option value="inactive">Inactive</option>
+                                    <option value="banned">Banned</option>
+                                    <option value="non-member">Non-Member</option>
+                                </select>
+                            </div>
+                        </div>
+                            <div class="form-group">
+                                <label>Photo</label>
+                                <input type="file" id="player-photo" accept="image/*">
+                            </div>
+                        </div>
+                        <div id="photo-preview" class="photo-preview"></div>
+                        <div class="rating-fields">
+                            <h4>Ratings</h4>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label>Classical</label>
+                                    <input type="number" id="player-rating-classical" min="0" max="3000" placeholder="e.g. 2700">
+                                </div>
+                                <div class="form-group">
+                                    <label>Rapid</label>
+                                    <input type="number" id="player-rating-rapid" min="0" max="3000" placeholder="e.g. 2750">
+                                </div>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label>Blitz</label>
+                                    <input type="number" id="player-rating-blitz" min="0" max="3000" placeholder="e.g. 2800">
+                                </div>
+                                <div class="form-group">
+                                    <label>Bullet</label>
+                                    <input type="number" id="player-rating-bullet" min="0" max="3000" placeholder="e.g. 3100">
+                                </div>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label>Chess960</label>
+                                    <input type="number" id="player-rating-chess960" min="0" max="3000" placeholder="e.g. 2600">
+                                </div>
+                                <div class="form-group">
+                                    <label>Legacy Rating</label>
+                                    <input type="number" id="player-rating" min="0" max="3000" placeholder="General rating">
+                                </div>
+                            </div>
+                        </div>
+                        <button type="submit" class="btn-primary">Save Player</button>
+                    </form>
+                </div>
+
+                <!-- Manage Players Tab -->
+                <div id="tab-manage-players" class="tab-content">
+                    <div class="admin-players-header">
+                        <input type="text" id="admin-player-search" placeholder="Search players..." class="admin-player-search">
+                    </div>
+                    <div class="player-status-tabs">
+                        <button class="player-status-tab active" data-status="active">Active</button>
+                        <button class="player-status-tab" data-status="inactive">Inactive</button>
+                        <button class="player-status-tab" data-status="banned">Banned</button>
+                        <button class="player-status-tab" data-status="non-member">Non-Member</button>
+                    </div>
+                    <div id="admin-player-list" class="game-list admin-game-list">
+                        <p class="empty-state">Loading players...</p>
+                    </div>
+                </div>
+
+                <!-- Edit Player Modal -->
+                <div id="edit-player-modal" class="modal" style="display:none">
+                    <div class="modal-content">
+                        <span class="modal-close" onclick="document.getElementById('edit-player-modal').style.display='none'">&times;</span>
+                        <h3 style="color:var(--accent);margin-bottom:1rem">Edit Player</h3>
+                        <form id="edit-player-form">
+                            <input type="hidden" id="edit-player-id">
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label>Name</label>
+                                    <input type="text" id="edit-player-name" required>
+                                </div>
+                                <div class="form-group">
+                                    <label>Title</label>
+                                    <select id="edit-player-title">
+                                        <option value="">None</option>
+                                        <option value="GM">GM - Grandmaster</option>
+                                        <option value="IM">IM - International Master</option>
+                                        <option value="FM">FM - FIDE Master</option>
+                                        <option value="CM">CM - Candidate Master</option>
+                                        <option value="WGM">WGM - Woman Grandmaster</option>
+                                        <option value="WIM">WIM - Woman International Master</option>
+                                        <option value="WFM">WFM - Woman FIDE Master</option>
+                                        <option value="WCM">WCM - Woman Candidate Master</option>
+                                        <option value="NM">NM - National Master</option>
+                                        <option value="AI">AI - Artist International</option>
+                                        <option value="DI">DI - Development International</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label>Country</label>
+                                    <input type="text" id="edit-player-country">
+                                </div>
+                                <div class="form-group">
+                                    <label>Status</label>
+                                    <select id="edit-player-status">
+                                        <option value="active">Active</option>
+                                        <option value="inactive">Inactive</option>
+                                        <option value="banned">Banned</option>
+                                        <option value="non-member">Non-Member</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label>Birth Year</label>
+                                <input type="number" id="edit-player-birth" min="1800" max="2026">
+                            </div>
+                            <div class="rating-fields">
+                                <h4>Ratings</h4>
+                                <div class="form-row">
+                                    <div class="form-group">
+                                        <label>Classical</label>
+                                        <input type="number" id="edit-rating-classical" min="0" max="3000">
+                                    </div>
+                                    <div class="form-group">
+                                        <label>Rapid</label>
+                                        <input type="number" id="edit-rating-rapid" min="0" max="3000">
+                                    </div>
+                                </div>
+                                <div class="form-row">
+                                    <div class="form-group">
+                                        <label>Blitz</label>
+                                        <input type="number" id="edit-rating-blitz" min="0" max="3000">
+                                    </div>
+                                    <div class="form-group">
+                                        <label>Bullet</label>
+                                        <input type="number" id="edit-rating-bullet" min="0" max="3000">
+                                    </div>
+                                </div>
+                                <div class="form-row">
+                                    <div class="form-group">
+                                        <label>Chess960</label>
+                                        <input type="number" id="edit-rating-chess960" min="0" max="3000">
+                                    </div>
+                                    <div class="form-group">
+                                        <label>Legacy Rating</label>
+                                        <input type="number" id="edit-rating" min="0" max="3000">
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label>Photo</label>
+                                <input type="file" id="edit-player-photo" accept="image/*">
+                            </div>
+                            <div style="display:flex;gap:0.75rem;margin-top:1rem">
+                                <button type="submit" class="btn-primary">Save Changes</button>
+                                <button type="button" class="btn-secondary" onclick="document.getElementById('edit-player-modal').style.display='none'" style="margin-top:0">Cancel</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+
+                <!-- Manage Games Tab -->
+                <div id="tab-manage-games" class="tab-content">
+                    <div id="admin-game-list" class="game-list admin-game-list">
+                        <p class="empty-state">No games to manage.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script src="js/chess.js"></script>
+    <script src="js/pgn-parser.js"></script>
+    <script src="js/board.js"></script>
+    <script src="js/app.js"></script>
+</body>
+</html>

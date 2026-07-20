@@ -124,34 +124,34 @@ class PGNParser {
         if (pieceType === 'p') {
             if (moveStr.length === 2) {
                 toFile = moveStr.charCodeAt(0) - 97;
-                toRank = parseInt(moveStr[1]) - 1;
+                toRank = 8 - parseInt(moveStr[1]);
             } else if (moveStr.length === 3) {
                 disambigFile = moveStr.charCodeAt(0) - 97;
                 toFile = moveStr.charCodeAt(1) - 97;
-                toRank = parseInt(moveStr[2]) - 1;
+                toRank = 8 - parseInt(moveStr[2]);
             } else if (moveStr.length === 4) {
                 disambigFile = moveStr.charCodeAt(0) - 97;
-                disambigRank = parseInt(moveStr[1]) - 1;
+                disambigRank = 8 - parseInt(moveStr[1]);
                 toFile = moveStr.charCodeAt(2) - 97;
-                toRank = parseInt(moveStr[3]) - 1;
+                toRank = 8 - parseInt(moveStr[3]);
             }
         } else {
             if (moveStr.length === 2) {
                 toFile = moveStr.charCodeAt(0) - 97;
-                toRank = parseInt(moveStr[1]) - 1;
+                toRank = 8 - parseInt(moveStr[1]);
             } else if (moveStr.length === 3) {
                 if (moveStr[0] >= 'a' && moveStr[0] <= 'h') {
                     disambigFile = moveStr.charCodeAt(0) - 97;
                 } else if (moveStr[0] >= '1' && moveStr[0] <= '8') {
-                    disambigRank = parseInt(moveStr[0]) - 1;
+                    disambigRank = 8 - parseInt(moveStr[0]);
                 }
                 toFile = moveStr.charCodeAt(1) - 97;
-                toRank = parseInt(moveStr[2]) - 1;
+                toRank = 8 - parseInt(moveStr[2]);
             } else if (moveStr.length === 4) {
                 disambigFile = moveStr.charCodeAt(0) - 97;
-                disambigRank = parseInt(moveStr[1]) - 1;
+                disambigRank = 8 - parseInt(moveStr[1]);
                 toFile = moveStr.charCodeAt(2) - 97;
-                toRank = parseInt(moveStr[3]) - 1;
+                toRank = 8 - parseInt(moveStr[3]);
             }
         }
 
