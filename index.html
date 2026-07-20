@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chess Archive</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <header>
+        <div class="header-content">
+            <h1>♔ Chess Archive</h1>
+            <nav>
+                <a href="#" class="nav-link active" data-page="archive">Archive</a>
+                <a href="#" class="nav-link" data-page="upload">Upload</a>
+            </nav>
+        </div>
+    </header>
+
+    <main>
+        <!-- Archive Page -->
+        <div id="page-archive" class="page active">
+            <div class="archive-layout">
+                <div class="board-section">
+                    <div class="board-container">
+                        <div id="player-top" class="player-bar">
+                            <span class="player-name">Black</span>
+                            <span class="player-rating"></span>
+                        </div>
+                        <div id="chessboard"></div>
+                        <div id="player-bottom" class="player-bar">
+                            <span class="player-name">White</span>
+                            <span class="player-rating"></span>
+                        </div>
+                    </div>
+                    <div class="controls">
+                        <button id="btn-start" title="Go to start">⏮</button>
+                        <button id="btn-prev" title="Previous move">◀</button>
+                        <button id="btn-next" title="Next move">▶</button>
+                        <button id="btn-end" title="Go to end">⏭</button>
+                        <button id="btn-flip" title="Flip board">🔄</button>
+                        <button id="btn-auto" title="Auto play">▶▶</button>
+                    </div>
+                    <div id="game-info" class="game-info">
+                        <div class="info-row"><span class="info-label">Event:</span> <span id="info-event">-</span></div>
+                        <div class="info-row"><span class="info-label">Date:</span> <span id="info-date">-</span></div>
+                        <div class="info-row"><span class="info-label">Result:</span> <span id="info-result">-</span></div>
+                        <div class="info-row"><span class="info-label">ECO:</span> <span id="info-eco">-</span></div>
+                    </div>
+                </div>
+                <div class="sidebar">
+                    <div class="search-box">
+                        <input type="text" id="search-input" placeholder="Search games...">
+                    </div>
+                    <div id="game-list" class="game-list">
+                        <p class="empty-state">No games loaded. Upload PGN files or load sample games.</p>
+                    </div>
+                    <button id="btn-load-sample" class="btn-secondary">Load Sample Games</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Upload Page -->
+        <div id="page-upload" class="page">
+            <div class="upload-layout">
+                <div class="upload-section">
+                    <h2>Upload PGN Files</h2>
+                    <div class="upload-area" id="upload-area">
+                        <p>Drag & drop .pgn files here or click to browse</p>
+                        <input type="file" id="file-input" accept=".pgn" multiple hidden>
+                    </div>
+                    <div id="upload-status" class="upload-status"></div>
+                </div>
+                <div class="upload-section">
+                    <h2>Paste PGN Text</h2>
+                    <textarea id="pgn-text" placeholder="Paste PGN text here..."></textarea>
+                    <button id="btn-parse-pgn" class="btn-primary">Parse PGN</button>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script src="js/chess.js"></script>
+    <script src="js/pgn-parser.js"></script>
+    <script src="js/board.js"></script>
+    <script src="js/app.js"></script>
+</body>
+</html>
