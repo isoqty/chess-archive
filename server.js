@@ -48,15 +48,19 @@ function requireAdmin(req, res, next) {
 }
 
 // --- AUTH ---
-app.post('/api/auth/login', (req, res) => {
-    const { username, password } = req.body;
-    const admin = db.getAdmin(username);
-    if (!admin || !bcrypt.compareSync(password, admin.password_hash)) {
-        return res.status(401).json({ error: 'Invalid credentials' });
+app.post('/api/auth/login', async (req, res) => {
+    try {
+        const { username, password } = req.body;
+        const admin = await db.getAdmin(username);
+        if (!admin || !bcrypt.compareSync(password, admin.password_hash)) {
+            return res.status(401).json({ error: 'Invalid credentials' });
+        }
+        req.session.isAdmin = true;
+        req.session.adminUser = username;
+        res.json({ success: true, username });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
     }
-    req.session.isAdmin = true;
-    req.session.adminUser = username;
-    res.json({ success: true, username });
 });
 
 app.post('/api/auth/logout', (req, res) => {
@@ -82,81 +86,113 @@ app.get('/api/admin/online', (req, res) => {
 });
 
 // --- PLAYERS ---
-app.get('/api/players', (req, res) => {
-    const { search, status } = req.query;
-    let players;
-    if (search && status) {
-        players = db.searchPlayersByStatus(search, status);
-    } else if (status) {
-        players = db.getPlayersByStatus(status);
-    } else if (search) {
-        players = db.searchPlayers(search);
-    } else {
-        players = db.getAllPlayers();
+app.get('/api/players', async (req, res) => {
+    try {
+        const { search, status } = req.query;
+        let players;
+        if (search && status) {
+            players = await db.searchPlayersByStatus(search, status);
+        } else if (status) {
+            players = await db.getPlayersByStatus(status);
+        } else if (search) {
+            players = await db.searchPlayers(search);
+        } else {
+            players = await db.getAllPlayers();
+        }
+        res.json(players);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
     }
-    res.json(players);
 });
 
-app.get('/api/players/:id', (req, res) => {
-    const player = db.getPlayer(req.params.id);
-    if (!player) return res.status(404).json({ error: 'Player not found' });
-    const games = db.getGamesByPlayer(req.params.id);
-    res.json({ ...player, games });
-});
-
-app.post('/api/players', requireAdmin, upload.single('photo'), (req, res) => {
-    const { name, title, rating, rating_rapid, rating_blitz, rating_classical, rating_bullet, rating_chess960, country, birth_year, status, role } = req.body;
-    const photo = req.file ? `/uploads/${req.file.filename}` : null;
-    const id = db.createPlayer({ name, title, rating, rating_rapid, rating_blitz, rating_classical, rating_bullet, rating_chess960, country, birth_year, photo, status, role });
-    res.json({ id, name, photo });
-});
-
-app.put('/api/players/:id', requireAdmin, upload.single('photo'), (req, res) => {
-    const { name, title, rating, rating_rapid, rating_blitz, rating_classical, rating_bullet, rating_chess960, country, birth_year, status, role } = req.body;
-    const photo = req.file ? `/uploads/${req.file.filename}` : undefined;
-    const player = db.getPlayer(req.params.id);
-    db.updatePlayer(req.params.id, { name, title, rating, rating_rapid, rating_blitz, rating_classical, rating_bullet, rating_chess960, country, birth_year, photo, status, role });
-    if (status === 'banned' && player && player.status !== 'banned') {
-        db.banPlayerGames(player.name);
+app.get('/api/players/:id', async (req, res) => {
+    try {
+        const player = await db.getPlayer(req.params.id);
+        if (!player) return res.status(404).json({ error: 'Player not found' });
+        const games = await db.getGamesByPlayer(req.params.id);
+        res.json({ ...player, games });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
     }
-    res.json({ success: true });
 });
 
-app.delete('/api/players/:id', requireAdmin, (req, res) => {
-    db.deletePlayer(req.params.id);
-    res.json({ success: true });
+app.post('/api/players', requireAdmin, upload.single('photo'), async (req, res) => {
+    try {
+        const { name, title, rating, rating_rapid, rating_blitz, rating_classical, rating_bullet, rating_chess960, country, birth_year, status, role } = req.body;
+        const photo = req.file ? `/uploads/${req.file.filename}` : null;
+        const id = await db.createPlayer({ name, title, rating, rating_rapid, rating_blitz, rating_classical, rating_bullet, rating_chess960, country, birth_year, photo, status, role });
+        res.json({ id, name, photo });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.put('/api/players/:id', requireAdmin, upload.single('photo'), async (req, res) => {
+    try {
+        const { name, title, rating, rating_rapid, rating_blitz, rating_classical, rating_bullet, rating_chess960, country, birth_year, status, role } = req.body;
+        const photo = req.file ? `/uploads/${req.file.filename}` : undefined;
+        const player = await db.getPlayer(req.params.id);
+        await db.updatePlayer(req.params.id, { name, title, rating, rating_rapid, rating_blitz, rating_classical, rating_bullet, rating_chess960, country, birth_year, photo, status, role });
+        if (status === 'banned' && player && player.status !== 'banned') {
+            await db.banPlayerGames(player.name);
+        }
+        res.json({ success: true });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.delete('/api/players/:id', requireAdmin, async (req, res) => {
+    try {
+        await db.deletePlayer(req.params.id);
+        res.json({ success: true });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
 });
 
 // --- GAMES ---
-app.get('/api/games', (req, res) => {
-    const { search, player, event, opening, year, eco, time_control, page = 1, limit = 20 } = req.query;
-    const result = db.searchGames({ search, player, event, opening, year, eco, time_control, page: parseInt(page), limit: parseInt(limit) });
-    res.json(result);
+app.get('/api/games', async (req, res) => {
+    try {
+        const { search, player, event, opening, year, eco, time_control, page = 1, limit = 20 } = req.query;
+        const result = await db.searchGames({ search, player, event, opening, year, eco, time_control, page: parseInt(page), limit: parseInt(limit) });
+        res.json(result);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
 });
 
-app.get('/api/games/:id', (req, res) => {
-    const game = db.getGame(req.params.id);
-    if (!game) return res.status(404).json({ error: 'Game not found' });
-    const whitePlayer = db.getPlayerByName(game.white_name);
-    const blackPlayer = db.getPlayerByName(game.black_name);
-    game.white_title = whitePlayer?.title || '';
-    game.black_title = blackPlayer?.title || '';
-    game.white_photo = whitePlayer?.photo || '';
-    game.black_photo = blackPlayer?.photo || '';
-    game.white_status = whitePlayer?.status || '';
-    game.black_status = blackPlayer?.status || '';
-    res.json(game);
+app.get('/api/games/:id', async (req, res) => {
+    try {
+        const game = await db.getGame(req.params.id);
+        if (!game) return res.status(404).json({ error: 'Game not found' });
+        const whitePlayer = await db.getPlayerByName(game.white_name);
+        const blackPlayer = await db.getPlayerByName(game.black_name);
+        game.white_title = whitePlayer?.title || '';
+        game.black_title = blackPlayer?.title || '';
+        game.white_photo = whitePlayer?.photo || '';
+        game.black_photo = blackPlayer?.photo || '';
+        game.white_status = whitePlayer?.status || '';
+        game.black_status = blackPlayer?.status || '';
+        res.json(game);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
 });
 
-app.delete('/api/games/:id', requireAdmin, (req, res) => {
-    db.deleteGame(req.params.id);
-    res.json({ success: true });
+app.delete('/api/games/:id', requireAdmin, async (req, res) => {
+    try {
+        await db.deleteGame(req.params.id);
+        res.json({ success: true });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
 });
 
-app.put('/api/games/:id', requireAdmin, (req, res) => {
+app.put('/api/games/:id', requireAdmin, async (req, res) => {
     try {
         const { white_name, black_name, white_elo, black_elo, time_control, date, event_name, result, eco, opening } = req.body;
-        db.updateGame(req.params.id, { white_name, black_name, white_elo, black_elo, time_control, date, event_name, result, eco, opening });
+        await db.updateGame(req.params.id, { white_name, black_name, white_elo, black_elo, time_control, date, event_name, result, eco, opening });
         res.json({ success: true });
     } catch (err) {
         res.status(500).json({ error: err.message });
@@ -170,7 +206,7 @@ const pgnUpload = multer({
     fileFilter: (req, file, cb) => cb(null, file.originalname.endsWith('.pgn') || file.mimetype === 'text/plain')
 });
 
-app.post('/api/games/upload-pgn', requireAdmin, pgnUpload.single('pgn'), (req, res) => {
+app.post('/api/games/upload-pgn', requireAdmin, pgnUpload.single('pgn'), async (req, res) => {
     try {
         let pgnText;
         if (req.file) {
@@ -185,7 +221,7 @@ app.post('/api/games/upload-pgn', requireAdmin, pgnUpload.single('pgn'), (req, r
         const games = parsePGNText(pgnText, defaultTC);
         const saved = [];
         for (const game of games) {
-            const id = db.saveGame(game);
+            const id = await db.saveGame(game);
             saved.push(id);
         }
         res.json({ success: true, count: saved.length, ids: saved });
@@ -194,9 +230,9 @@ app.post('/api/games/upload-pgn', requireAdmin, pgnUpload.single('pgn'), (req, r
     }
 });
 
-app.post('/api/games/save', requireAdmin, (req, res) => {
+app.post('/api/games/save', requireAdmin, async (req, res) => {
     try {
-        const id = db.saveGame(req.body);
+        const id = await db.saveGame(req.body);
         res.json({ success: true, id });
     } catch (err) {
         res.status(500).json({ error: err.message });
@@ -204,83 +240,115 @@ app.post('/api/games/save', requireAdmin, (req, res) => {
 });
 
 // --- STATS ---
-app.get('/api/stats', (req, res) => {
-    const stats = db.getStats();
-    res.json(stats);
+app.get('/api/stats', async (req, res) => {
+    try {
+        const stats = await db.getStats();
+        res.json(stats);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
 });
 
 // --- LEADERBOARD ---
-app.get('/api/leaderboard', (req, res) => {
-    const leaderboard = db.getLeaderboard();
-    res.json(leaderboard);
+app.get('/api/leaderboard', async (req, res) => {
+    try {
+        const leaderboard = await db.getLeaderboard();
+        res.json(leaderboard);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
 });
 
 // --- OPENINGS ---
-app.get('/api/openings', (req, res) => {
-    const openings = db.getOpenings();
-    res.json(openings);
+app.get('/api/openings', async (req, res) => {
+    try {
+        const openings = await db.getOpenings();
+        res.json(openings);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
 });
 
 // --- EVENTS ---
-app.get('/api/events', (req, res) => {
-    const events = db.getEvents();
-    res.json(events);
+app.get('/api/events', async (req, res) => {
+    try {
+        const events = await db.getEvents();
+        res.json(events);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
 });
 
 // --- TOURNAMENTS ---
-app.get('/api/tournaments', (req, res) => {
-    res.json(db.getTournaments());
-});
-
-app.get('/api/tournaments/:id', (req, res) => {
-    const t = db.getTournamentParticipants(req.params.id);
-    if (!t) return res.status(404).json({ error: 'Tournament not found' });
-    res.json(t);
-});
-
-app.post('/api/tournaments', requireAdmin, (req, res) => {
+app.get('/api/tournaments', async (req, res) => {
     try {
-        const id = db.createTournament(req.body);
+        res.json(await db.getTournaments());
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.get('/api/tournaments/:id', async (req, res) => {
+    try {
+        const t = await db.getTournamentParticipants(req.params.id);
+        if (!t) return res.status(404).json({ error: 'Tournament not found' });
+        res.json(t);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.post('/api/tournaments', requireAdmin, async (req, res) => {
+    try {
+        const id = await db.createTournament(req.body);
         res.json({ success: true, id });
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
 });
 
-app.put('/api/tournaments/:id', requireAdmin, (req, res) => {
+app.put('/api/tournaments/:id', requireAdmin, async (req, res) => {
     try {
-        db.updateTournament(req.params.id, req.body);
+        await db.updateTournament(req.params.id, req.body);
         res.json({ success: true });
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
 });
 
-app.delete('/api/tournaments/:id', requireAdmin, (req, res) => {
-    db.deleteTournament(req.params.id);
-    res.json({ success: true });
+app.delete('/api/tournaments/:id', requireAdmin, async (req, res) => {
+    try {
+        await db.deleteTournament(req.params.id);
+        res.json({ success: true });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
 });
 
-app.post('/api/tournaments/:id/players', requireAdmin, (req, res) => {
+app.post('/api/tournaments/:id/players', requireAdmin, async (req, res) => {
     try {
         const { player_id, seed_order } = req.body;
         if (!player_id) return res.status(400).json({ error: 'player_id required' });
-        const id = db.addTournamentParticipant(req.params.id, parseInt(player_id), seed_order || 0);
+        const id = await db.addTournamentParticipant(req.params.id, parseInt(player_id), seed_order || 0);
         res.json({ success: true, id });
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
 });
 
-app.delete('/api/tournaments/:id/players/:playerId', requireAdmin, (req, res) => {
-    db.removeTournamentParticipant(req.params.id, parseInt(req.params.playerId));
-    res.json({ success: true });
+app.delete('/api/tournaments/:id/players/:playerId', requireAdmin, async (req, res) => {
+    try {
+        await db.removeTournamentParticipant(req.params.id, parseInt(req.params.playerId));
+        res.json({ success: true });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
 });
 
-app.put('/api/tournaments/:id/players/:playerId', requireAdmin, (req, res) => {
+app.put('/api/tournaments/:id/players/:playerId', requireAdmin, async (req, res) => {
     try {
         const { manual_score, manual_buc1, manual_berger, manual_de } = req.body;
-        db.updateTournamentParticipant(req.params.id, parseInt(req.params.playerId), { manual_score, manual_buc1, manual_berger, manual_de });
+        await db.updateTournamentParticipant(req.params.id, parseInt(req.params.playerId), { manual_score, manual_buc1, manual_berger, manual_de });
         res.json({ success: true });
     } catch (err) {
         res.status(500).json({ error: err.message });
@@ -379,37 +447,49 @@ function parseTimeControl(tc) {
 }
 
 // --- Tournament Pairings ---
-app.get('/api/tournaments/:id/pairings', (req, res) => {
-    const round = req.query.round ? parseInt(req.query.round) : null;
-    res.json(db.getTournamentPairings(req.params.id, round));
+app.get('/api/tournaments/:id/pairings', async (req, res) => {
+    try {
+        const round = req.query.round ? parseInt(req.query.round) : null;
+        res.json(await db.getTournamentPairings(req.params.id, round));
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
 });
 
-app.post('/api/tournaments/:id/pairings', requireAdmin, (req, res) => {
+app.post('/api/tournaments/:id/pairings', requireAdmin, async (req, res) => {
     try {
-        const id = db.addTournamentPairing(req.params.id, req.body);
+        const id = await db.addTournamentPairing(req.params.id, req.body);
         res.json({ success: true, id });
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
 });
 
-app.put('/api/tournaments/:id/pairings/:pid', requireAdmin, (req, res) => {
+app.put('/api/tournaments/:id/pairings/:pid', requireAdmin, async (req, res) => {
     try {
-        db.updateTournamentPairing(req.params.pid, req.body);
+        await db.updateTournamentPairing(req.params.pid, req.body);
         res.json({ success: true });
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
 });
 
-app.delete('/api/tournaments/:id/pairings/:pid', requireAdmin, (req, res) => {
-    db.deleteTournamentPairing(req.params.pid);
-    res.json({ success: true });
+app.delete('/api/tournaments/:id/pairings/:pid', requireAdmin, async (req, res) => {
+    try {
+        await db.deleteTournamentPairing(req.params.pid);
+        res.json({ success: true });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
 });
 
-app.delete('/api/tournaments/:id/pairings/round/:round', requireAdmin, (req, res) => {
-    db.deleteTournamentPairingsByRound(req.params.id, parseInt(req.params.round));
-    res.json({ success: true });
+app.delete('/api/tournaments/:id/pairings/round/:round', requireAdmin, async (req, res) => {
+    try {
+        await db.deleteTournamentPairingsByRound(req.params.id, parseInt(req.params.round));
+        res.json({ success: true });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
 });
 
 // --- Start server ---
@@ -418,7 +498,11 @@ const uploadsDir = path.join(__dirname, 'uploads');
 if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
 if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
 
-db.init();
-app.listen(PORT, () => {
-    console.log(`Chess Archive running at http://localhost:${PORT}`);
+db.init().then(() => {
+    app.listen(PORT, () => {
+        console.log(`Chess Archive running at http://localhost:${PORT}`);
+    });
+}).catch(err => {
+    console.error('Failed to initialize database:', err);
+    process.exit(1);
 });
