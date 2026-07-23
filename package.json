@@ -5,7 +5,9 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "dev": "node --watch server.js"
+    "dev": "node --watch server.js",
+    "deploy": "wrangler deploy",
+    "preview": "wrangler dev"
   },
   "repository": {
     "type": "git",
@@ -21,9 +23,12 @@
   "homepage": "https://github.com/isoqty/chess-archive#readme",
   "dependencies": {
     "bcryptjs": "^3.0.3",
-    "pg": "^8.13.0",
     "express": "^5.2.1",
     "express-session": "^1.19.0",
-    "multer": "^2.2.0"
+    "multer": "^2.2.0",
+    "pg": "^8.13.0"
+  },
+  "devDependencies": {
+    "wrangler": "^4.113.0"
   }
 }
