@@ -42,6 +42,37 @@ header {
     align-items: center;
 }
 
+.header-right {
+    display: flex;
+    align-items: center;
+    gap: 1.25rem;
+}
+
+.admin-online-indicator {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+}
+
+.admin-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #6b7280;
+    transition: background 0.3s;
+}
+
+.admin-online-indicator.online .admin-dot {
+    background: #22c55e;
+    box-shadow: 0 0 6px rgba(34, 197, 94, 0.5);
+}
+
+.admin-online-indicator.online .admin-status-text {
+    color: #22c55e;
+}
+
 h1 {
     font-size: 1.5rem;
     color: var(--accent);
@@ -103,8 +134,24 @@ main {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 0.5rem 0;
+    align-self: stretch;
+    padding: 0.5rem 0 0.5rem 34px;
     font-weight: 600;
+}
+
+.player-bar-left {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.player-bar-photo {
+    width: 44px;
+    height: 44px;
+    border-radius: 4px;
+    object-fit: cover;
+    border: 2px solid var(--border);
+    display: none;
 }
 
 .player-rating {
@@ -114,6 +161,94 @@ main {
 
 #chessboard {
     position: relative;
+}
+
+.board-with-eval {
+    display: flex;
+    gap: 6px;
+    align-items: stretch;
+}
+
+.eval-bar-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 28px;
+}
+
+.eval-bar {
+    flex: 1;
+    width: 100%;
+    background: #333;
+    border-radius: 4px;
+    overflow: hidden;
+    position: relative;
+    border: 1px solid var(--border);
+}
+
+.eval-bar-fill {
+    position: absolute;
+    bottom: 0;
+    width: 100%;
+    height: 50%;
+    background: #fff;
+    transition: height 0.5s ease;
+}
+
+.eval-bar-container.flipped .eval-bar-fill {
+    bottom: auto;
+    top: 0;
+}
+
+.eval-bar-container.flipped .eval-score {
+    order: -1;
+    margin-top: 0;
+    margin-bottom: 4px;
+}
+
+.eval-score {
+    font-size: 0.7rem;
+    font-weight: 700;
+    color: var(--text-secondary);
+    margin-top: 4px;
+    text-align: center;
+    white-space: nowrap;
+}
+
+.engine-lines {
+    margin-top: 8px;
+    padding: 8px 10px;
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    height: 76px;
+    max-height: 76px;
+    overflow: hidden;
+}
+
+.engine-line {
+    font-family: 'Courier New', monospace;
+    font-size: 0.8rem;
+    padding: 3px 0;
+    color: var(--text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.engine-line + .engine-line {
+    border-top: 1px solid var(--border);
+}
+
+.engine-line-score {
+    font-weight: 700;
+    display: inline-block;
+    min-width: 42px;
+    color: var(--accent);
+}
+
+.engine-line-moves {
+    color: var(--text-secondary);
 }
 
 .chessboard-wrapper {
@@ -246,6 +381,23 @@ main {
     color: var(--text-secondary);
     width: 80px;
     flex-shrink: 0;
+}
+
+.btn-edit-game {
+    background: none;
+    border: 1px solid var(--border);
+    color: var(--text-secondary);
+    cursor: pointer;
+    font-size: 0.8rem;
+    padding: 0.3rem 0.6rem;
+    border-radius: 4px;
+    margin-top: 0.5rem;
+}
+
+.btn-edit-game:hover {
+    background: var(--bg-tertiary);
+    color: var(--accent);
+    border-color: var(--accent);
 }
 
 /* Sidebar */
@@ -726,6 +878,388 @@ textarea:focus {
     font-weight: 600;
 }
 
+.stat-list-collapsible .stat-list-hidden {
+    display: none;
+}
+
+.stat-list-collapsible.expanded .stat-list-hidden {
+    display: flex;
+}
+
+.stat-show-more {
+    background: none;
+    border: none;
+    color: var(--accent);
+    cursor: pointer;
+    font-size: 0.85rem;
+    font-weight: 600;
+    padding: 0.4rem 0;
+    margin-top: 0.25rem;
+}
+
+.stat-show-more:hover {
+    color: var(--accent-hover);
+}
+
+/* Tournaments */
+.tournaments-layout {
+    max-width: 900px;
+    margin: 0 auto;
+}
+
+.tournaments-header h2 {
+    margin-bottom: 1rem;
+}
+
+.tournament-list {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.tournament-card {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1.25rem;
+}
+
+.tournament-card-header {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 0.75rem;
+}
+
+.tournament-status {
+    font-size: 0.7rem;
+    font-weight: 700;
+    padding: 0.2rem 0.6rem;
+    border-radius: 4px;
+    color: #fff;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    white-space: nowrap;
+}
+
+.tournament-name {
+    font-size: 1.15rem;
+    font-weight: 700;
+    margin: 0;
+}
+
+.tournament-card-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem 1.5rem;
+    margin-bottom: 0.5rem;
+}
+
+.tournament-meta-item {
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+}
+
+.tournament-card-details {
+    margin-top: 0.5rem;
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+    line-height: 1.5;
+    white-space: pre-line;
+}
+
+.tournament-card-contact {
+    margin-top: 0.5rem;
+    font-size: 0.85rem;
+    color: var(--accent);
+}
+
+.tournament-card {
+    cursor: pointer;
+    transition: border-color 0.2s;
+}
+
+.tournament-card:hover {
+    border-color: var(--accent);
+}
+
+.tournament-detail-panel {
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.3s ease, margin-top 0.3s ease, padding 0.3s ease;
+    margin-top: 0;
+    padding: 0;
+}
+
+.tournament-detail-panel.open {
+    max-height: 2000px;
+    margin-top: 1rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--border);
+}
+
+.tournament-loading,
+.tournament-empty {
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+    padding: 0.5rem 0;
+}
+
+.tournament-standings {
+    width: 100%;
+}
+
+.tournament-standings-header {
+    display: grid;
+    gap: 0.5rem;
+    padding: 0.4rem 0.75rem;
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    border-bottom: 1px solid var(--border);
+}
+
+.swiss .tournament-standings-header,
+.swiss .tournament-player-row {
+    grid-template-columns: 40px 1fr 80px 70px repeat(4, 60px);
+}
+
+.round-robin .tournament-standings-header,
+.round-robin .tournament-player-row {
+    grid-template-columns: 40px 1fr 80px 70px repeat(2, 60px);
+}
+
+.tournament-standings-info {
+    display: flex;
+    gap: 1.5rem;
+    padding: 0.3rem 0.75rem;
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    flex-wrap: wrap;
+    align-items: center;
+}
+
+.tournament-standings-tabs {
+    margin-left: auto;
+    display: flex;
+    gap: 0.25rem;
+}
+
+.tournament-tab-btn {
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border);
+    color: var(--text-secondary);
+    padding: 0.2rem 0.75rem;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.8rem;
+    font-weight: 600;
+    transition: all 0.15s;
+}
+
+.tournament-tab-btn:hover {
+    background: var(--accent);
+    color: #fff;
+}
+
+.tournament-tab-btn.active {
+    background: var(--accent);
+    color: #fff;
+    border-color: var(--accent);
+}
+
+.tournament-standings-tc {
+    font-style: italic;
+}
+
+.tournament-standings-round {
+    font-weight: 600;
+    color: var(--accent);
+}
+
+.tournament-player-row {
+    display: grid;
+    gap: 0.5rem;
+    padding: 0.5rem 0.75rem;
+    font-size: 0.9rem;
+    align-items: center;
+    border-bottom: 1px solid var(--border);
+}
+
+.tournament-player-row:last-child {
+    border-bottom: none;
+}
+
+.tournament-player-row:hover {
+    background: var(--bg-primary);
+}
+
+.tp-rank {
+    font-weight: 700;
+    color: var(--text-secondary);
+    text-align: center;
+}
+
+.tp-info {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.participant-photo {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 1px solid var(--border);
+}
+
+.participant-photo-placeholder {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--bg-primary);
+    color: var(--accent);
+    font-weight: 700;
+    font-size: 0.8rem;
+}
+
+.tp-name {
+    font-weight: 600;
+}
+
+.tp-score {
+    text-align: center;
+    font-weight: 700;
+    font-size: 1rem;
+    color: var(--accent);
+}
+
+.tp-tb {
+    text-align: center;
+    font-size: 0.8rem;
+    font-variant-numeric: tabular-nums;
+    color: var(--text-secondary);
+}
+
+.tp-rating {
+    text-align: center;
+    font-variant-numeric: tabular-nums;
+    color: var(--text-secondary);
+}
+
+/* Admin tournament player management */
+.admin-tournament-participants {
+    margin-top: 1rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--border);
+}
+
+.admin-tournament-player-list {
+    margin-top: 0.75rem;
+}
+
+.admin-player-row {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.5rem 0.75rem;
+    border-bottom: 1px solid var(--border);
+    font-size: 0.9rem;
+    flex-wrap: wrap;
+}
+
+.admin-player-row:last-child {
+    border-bottom: none;
+}
+
+.admin-player-name {
+    min-width: 160px;
+    font-weight: 600;
+}
+
+.admin-player-fields {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    flex-wrap: wrap;
+}
+
+.admin-player-fields label {
+    font-size: 0.7rem;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+}
+
+.admin-tf-input {
+    width: 55px;
+    padding: 0.25rem 0.35rem;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    font-size: 0.8rem;
+    text-align: center;
+}
+
+.admin-tf-input:focus {
+    outline: none;
+    border-color: var(--accent);
+}
+
+.admin-player-rating {
+    color: var(--text-secondary);
+    min-width: 50px;
+    text-align: center;
+}
+
+.btn-primary-sm {
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    padding: 0.25rem 0.6rem;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: opacity 0.2s;
+}
+
+.btn-primary-sm:hover {
+    opacity: 0.85;
+}
+
+.btn-danger-sm {
+    background: #ef4444;
+    color: #fff;
+    border: none;
+    padding: 0.25rem 0.6rem;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.btn-danger-sm:hover {
+    background: #dc2626;
+}
+
+.player-title-badge {
+    display: inline-block;
+    background: #dc3545;
+    color: #fff;
+    font-size: 0.65rem;
+    font-weight: 700;
+    padding: 0.1rem 0.35rem;
+    border-radius: 3px;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+}
+
 /* Admin Page */
 .admin-section {
     max-width: 800px;
@@ -849,6 +1383,22 @@ textarea:focus {
 
 .game-item-delete:hover {
     background: rgba(233, 69, 96, 0.2);
+}
+
+.game-edit-btn {
+    float: right;
+    background: none;
+    border: none;
+    color: var(--text-secondary);
+    cursor: pointer;
+    font-size: 0.85rem;
+    padding: 0.2rem 0.5rem;
+    border-radius: 3px;
+}
+
+.game-edit-btn:hover {
+    background: rgba(255, 255, 255, 0.1);
+    color: var(--accent);
 }
 
 /* Photo Preview */
@@ -1208,6 +1758,46 @@ textarea:focus {
     font-weight: 700;
 }
 
+.result-badge {
+    display: inline-block;
+    width: 1.2em;
+    text-align: center;
+    font-size: 0.7em;
+    font-weight: 700;
+    border-radius: 3px;
+    padding: 0.1em 0.15em;
+    line-height: 1;
+    vertical-align: middle;
+    margin-left: 0.25em;
+}
+
+.result-badge.result-win {
+    background: var(--success) !important;
+    color: #fff !important;
+}
+
+.result-badge.result-loss {
+    background: var(--accent) !important;
+    color: #fff !important;
+}
+
+.result-badge.result-draw {
+    background: var(--warning) !important;
+    color: #fff !important;
+}
+
+.time-control-badge {
+    display: inline-block;
+    font-size: 0.65em;
+    font-weight: 600;
+    padding: 0.1em 0.4em;
+    border-radius: 3px;
+    background: var(--bg-tertiary);
+    color: var(--text-secondary);
+    margin-left: 0.25em;
+    text-transform: capitalize;
+}
+
 /* Player stats row */
 .player-stats-row {
     display: flex;
@@ -1292,8 +1882,424 @@ textarea:focus {
     border: 1px solid #ef444444;
 }
 
+.player-banned-badge {
+    display: inline-block;
+    font-size: 0.6rem;
+    font-weight: 700;
+    padding: 0.1rem 0.35rem;
+    border-radius: 3px;
+    background: #ef4444;
+    color: #fff;
+    vertical-align: middle;
+    margin-left: 0.25rem;
+    letter-spacing: 0.03em;
+    line-height: 1.2;
+}
+
 .status-non-member {
     background: #6b728022;
     color: #6b7280;
     border: 1px solid #6b728044;
+}
+
+.player-role-badge {
+    display: inline-block;
+    font-size: 0.75rem;
+    font-weight: 600;
+    padding: 0.2rem 0.6rem;
+    border-radius: 4px;
+    margin-top: 0.25rem;
+    margin-left: 0.35rem;
+}
+
+.role-coach {
+    background: #8b5cf622;
+    color: #8b5cf6;
+    border: 1px solid #8b5cf644;
+}
+
+.role-developer {
+    background: #06b6d422;
+    color: #06b6d4;
+    border: 1px solid #06b6d444;
+}
+
+.role-admin {
+    background: #f43f5e22;
+    color: #f43f5e;
+    border: 1px solid #f43f5e44;
+}
+
+.music-toggle {
+    position: fixed;
+    bottom: 1.5rem;
+    right: 1.5rem;
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-size: 1.2rem;
+    z-index: 9999;
+    transition: background 0.2s, transform 0.2s;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+}
+
+.music-toggle:hover {
+    background: var(--accent);
+    transform: scale(1.1);
+}
+
+.music-toggle:hover #music-icon {
+    color: #fff;
+}
+
+.changelog-container {
+    max-width: 700px;
+    margin: 0 auto;
+    padding: 2rem 1rem;
+}
+
+.changelog-container h2 {
+    margin-bottom: 2rem;
+    text-align: center;
+}
+
+.changelog-entry {
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1.25rem 1.5rem;
+    margin-bottom: 1.25rem;
+}
+
+.changelog-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.75rem;
+}
+
+.changelog-version {
+    font-size: 1.2rem;
+    font-weight: 700;
+    color: var(--accent);
+}
+
+.changelog-date {
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+}
+
+.changelog-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.changelog-list li {
+    padding: 0.3rem 0 0.3rem 1.25rem;
+    position: relative;
+    color: var(--text);
+    line-height: 1.5;
+}
+
+.changelog-list li::before {
+    content: '\2022';
+    position: absolute;
+    left: 0;
+    color: var(--accent);
+    font-weight: 700;
+}
+
+.version-tag {
+    position: fixed;
+    bottom: 12px;
+    right: 16px;
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    opacity: 0.5;
+    pointer-events: none;
+}
+
+/* Game-end overlays on kings */
+.game-end-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    pointer-events: none;
+    z-index: 10;
+}
+
+.game-end-overlay .ge-text {
+    position: absolute;
+    font-size: 10px;
+    font-weight: 700;
+    color: #fff;
+    white-space: nowrap;
+    letter-spacing: 0.2px;
+    padding: 3px 8px;
+    border-radius: 12px;
+    opacity: 1;
+    animation: geTextFadeOut 3.5s forwards;
+    z-index: 2;
+}
+
+.game-end-overlay .ge-text.loser-text {
+    background: rgba(220, 50, 50, 0.92);
+    box-shadow: 0 1px 5px rgba(0,0,0,0.5);
+}
+
+.game-end-overlay .ge-text.winner-text {
+    background: rgba(40, 167, 69, 0.92);
+    box-shadow: 0 1px 5px rgba(0,0,0,0.5);
+}
+
+.game-end-overlay .ge-icon {
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 22px;
+    height: 22px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    border-radius: 50%;
+    opacity: 0;
+    animation: geIconFadeIn 3.5s forwards;
+    z-index: 3;
+}
+
+.game-end-overlay .ge-icon.loser-icon {
+    background: rgba(220, 50, 50, 0.92);
+    box-shadow: 0 1px 5px rgba(0,0,0,0.5);
+}
+
+.game-end-overlay .ge-icon.winner-icon {
+    background: rgba(40, 167, 69, 0.92);
+    box-shadow: 0 1px 5px rgba(0,0,0,0.5);
+}
+
+.game-end-overlay.checkmate-loser .ge-icon {
+    animation: geIconFallIn 3.5s forwards;
+}
+
+.square.ge-loser {
+    background-color: rgba(220, 50, 50, 0.35) !important;
+}
+
+.square.ge-winner {
+    background-color: rgba(40, 167, 69, 0.35) !important;
+}
+
+.game-end-overlay .ge-text.draw-text {
+    background: rgba(100, 100, 100, 0.92);
+    box-shadow: 0 1px 5px rgba(0,0,0,0.5);
+}
+
+.game-end-overlay .ge-icon.draw-icon {
+    background: rgba(100, 100, 100, 0.92);
+    box-shadow: 0 1px 5px rgba(0,0,0,0.5);
+}
+
+.square.ge-draw {
+    background-color: rgba(100, 100, 100, 0.25) !important;
+}
+
+@keyframes geTextFadeOut {
+    0%, 45% { opacity: 1; transform: scale(1); }
+    65%, 100% { opacity: 0; transform: scale(0.6); }
+}
+
+@keyframes geIconFadeIn {
+    0%, 50% { opacity: 0; transform: scale(0.3); }
+    70%, 100% { opacity: 1; transform: scale(1); }
+}
+
+@keyframes geIconFallIn {
+    0%, 50% { opacity: 0; transform: translateY(-10px) rotate(-110deg) scale(0.3); }
+    70% { opacity: 1; transform: translateY(2px) rotate(-82deg) scale(1.15); }
+    82% { opacity: 1; transform: translateY(-1px) rotate(-86deg) scale(0.95); }
+    100% { opacity: 1; transform: translateY(0) rotate(-90deg) scale(1); }
+}
+
+/* --- Tournament Pairings --- */
+.pairing-round-selector {
+    display: flex;
+    gap: 0.25rem;
+    padding: 0.5rem 0.75rem;
+    flex-wrap: wrap;
+}
+
+.pairing-round-btn {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    color: var(--text-secondary);
+    padding: 0.25rem 0.6rem;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.75rem;
+    font-weight: 600;
+    transition: all 0.15s;
+}
+
+.pairing-round-btn:hover {
+    background: var(--accent);
+    color: #fff;
+}
+
+.pairing-round-btn.active {
+    background: var(--accent);
+    color: #fff;
+    border-color: var(--accent);
+}
+
+.pairing-list {
+    padding: 0 0.75rem;
+}
+
+.pairing-list-header {
+    display: grid;
+    grid-template-columns: 40px 1fr 70px 1fr auto;
+    gap: 0.5rem;
+    padding: 0.4rem 0;
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    border-bottom: 1px solid var(--border);
+}
+
+.pairing-row {
+    display: grid;
+    grid-template-columns: 40px 1fr 70px 1fr auto;
+    gap: 0.5rem;
+    padding: 0.5rem 0;
+    font-size: 0.85rem;
+    align-items: center;
+    border-bottom: 1px solid var(--border);
+}
+
+.pairing-row:last-child {
+    border-bottom: none;
+}
+
+.pairing-row:hover {
+    background: var(--bg-primary);
+}
+
+.pairing-board {
+    font-weight: 700;
+    color: var(--text-secondary);
+    text-align: center;
+}
+
+.pairing-white, .pairing-black {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.pairing-black {
+    text-align: right;
+}
+
+.pairing-result {
+    font-weight: 700;
+    text-align: center;
+    color: var(--accent);
+    font-size: 0.9rem;
+}
+
+.pairing-actions {
+    display: flex;
+    gap: 0.25rem;
+}
+
+.btn-icon {
+    background: none;
+    border: 1px solid var(--border);
+    color: var(--text-secondary);
+    width: 24px;
+    height: 24px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.75rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.15s;
+}
+
+.btn-icon:hover {
+    background: var(--accent);
+    color: #fff;
+    border-color: var(--accent);
+}
+
+.btn-icon-danger:hover {
+    background: #dc3545;
+    border-color: #dc3545;
+}
+
+.btn-primary-sm {
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    padding: 0.3rem 0.75rem;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.8rem;
+    font-weight: 600;
+    transition: background 0.15s;
+}
+
+.btn-primary-sm:hover {
+    background: var(--accent-hover);
+}
+
+.pairing-add-form {
+    padding: 0.75rem;
+    border-top: 1px solid var(--border);
+}
+
+.pairing-add-form h4 {
+    font-size: 0.85rem;
+    color: var(--accent);
+    margin-bottom: 0.5rem;
+}
+
+.pairing-form-row {
+    display: flex;
+    gap: 0.5rem;
+    align-items: flex-end;
+    flex-wrap: wrap;
+}
+
+.pairing-form-row label {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+}
+
+.pairing-form-row input,
+.pairing-form-row select {
+    background: var(--bg-primary);
+    border: 1px solid var(--border);
+    color: var(--text-primary);
+    padding: 0.3rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.8rem;
 }

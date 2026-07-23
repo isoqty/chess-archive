@@ -4,19 +4,27 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>NBC3 Official</title>
-    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/style.css?v=1.1.0">
 </head>
 <body>
     <header>
         <div class="header-content">
             <h1>♔ NBC3 Official</h1>
-            <nav>
+            <div class="header-right">
+                <span id="admin-online-indicator" class="admin-online-indicator" title="Admin status">
+                    <span class="admin-dot"></span>
+                    <span class="admin-status-text">Admin Offline</span>
+                </span>
+                <nav>
                 <a href="#" class="nav-link active" data-page="archive">Archive</a>
+                <a href="#" class="nav-link" data-page="tournaments">Tournaments</a>
                 <a href="#" class="nav-link" data-page="players">Players</a>
                 <a href="#" class="nav-link" data-page="leaderboard">Leaderboard</a>
                 <a href="#" class="nav-link" data-page="stats">Statistics</a>
                 <a href="#" class="nav-link" data-page="admin">Admin</a>
+                <a href="#" class="nav-link" data-page="changelog">Changelog</a>
             </nav>
+            </div>
         </div>
     </header>
 
@@ -27,12 +35,26 @@
                 <div class="board-section">
                     <div class="board-container">
                         <div id="player-top" class="player-bar">
-                            <span class="player-name">Black</span>
+                            <div class="player-bar-left">
+                                <img class="player-bar-photo" src="" alt="">
+                                <span class="player-name">Black</span>
+                            </div>
                             <span class="player-rating"></span>
                         </div>
-                        <div id="chessboard"></div>
+                        <div class="board-with-eval">
+                            <div class="eval-bar-container">
+                                <div class="eval-bar">
+                                    <div class="eval-bar-fill" id="eval-bar-fill"></div>
+                                </div>
+                                <div class="eval-score" id="eval-score">0.0</div>
+                            </div>
+                            <div id="chessboard"></div>
+                        </div>
                         <div id="player-bottom" class="player-bar">
-                            <span class="player-name">White</span>
+                            <div class="player-bar-left">
+                                <img class="player-bar-photo" src="" alt="">
+                                <span class="player-name">White</span>
+                            </div>
                             <span class="player-rating"></span>
                         </div>
                     </div>
@@ -48,15 +70,21 @@
                         <div class="info-row"><span class="info-label">Event:</span> <span id="info-event">-</span></div>
                         <div class="info-row"><span class="info-label">Date:</span> <span id="info-date">-</span></div>
                         <div class="info-row"><span class="info-label">Result:</span> <span id="info-result">-</span></div>
-                        <div class="info-row"><span class="info-label">ECO:</span> <span id="info-eco">-</span></div>
+                        <div class="info-row"><span class="info-label">Opening:</span> <span id="info-opening">-</span></div>
+                        <div class="info-row"><span class="info-label">Time Control:</span> <span id="info-time-control">-</span></div>
                     </div>
+                    <div id="engine-lines" class="engine-lines"></div>
                     <div id="move-list-area"></div>
                 </div>
                 <div class="sidebar">
                     <div class="filter-box">
                         <input type="text" id="search-input" placeholder="Search players, events, openings...">
-                        <select id="filter-eco">
-                            <option value="">All Openings</option>
+                        <select id="filter-time-control">
+                            <option value="">All Time Controls</option>
+                            <option value="bullet">Bullet</option>
+                            <option value="blitz">Blitz</option>
+                            <option value="rapid">Rapid</option>
+                            <option value="standard">Standard</option>
                         </select>
                         <select id="filter-year">
                             <option value="">All Years</option>
@@ -66,6 +94,18 @@
                         <p class="empty-state">No games yet. Upload PGN files in Admin panel.</p>
                     </div>
                     <div id="pagination" class="pagination"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tournaments Page -->
+        <div id="page-tournaments" class="page">
+            <div class="tournaments-layout">
+                <div class="tournaments-header">
+                    <h2>Tournaments</h2>
+                </div>
+                <div id="tournament-list" class="tournament-list">
+                    <p class="empty-state">No tournaments found.</p>
                 </div>
             </div>
         </div>
@@ -138,6 +178,7 @@
                     <button class="tab-btn" data-tab="add-player">Add Player</button>
                     <button class="tab-btn" data-tab="manage-players">Manage Players</button>
                     <button class="tab-btn" data-tab="manage-games">Manage Games</button>
+                    <button class="tab-btn" data-tab="manage-tournaments">Tournaments</button>
                 </div>
 
                 <!-- Upload PGN Tab -->
@@ -158,6 +199,16 @@
 [Result &quot;1-0&quot;]
 
 1. e4 e5 2. Nf3 Nc6 1-0"></textarea>
+                            <div class="form-group" style="margin-top: 0.75rem;">
+                                <label>Default Time Control (if not in PGN)</label>
+                                <select id="pgn-default-tc">
+                                    <option value="">Auto-detect from PGN</option>
+                                    <option value="bullet">Bullet</option>
+                                    <option value="blitz">Blitz</option>
+                                    <option value="rapid">Rapid</option>
+                                    <option value="standard">Standard</option>
+                                </select>
+                            </div>
                             <button id="btn-parse-pgn" class="btn-primary">Parse & Save</button>
                         </div>
                     </div>
@@ -208,12 +259,20 @@
                                     <option value="non-member">Non-Member</option>
                                 </select>
                             </div>
+                            <div class="form-group">
+                                <label>Role</label>
+                                <select id="player-role">
+                                    <option value="">None</option>
+                                    <option value="coach">Coach</option>
+                                    <option value="developer">Developer</option>
+                                    <option value="admin">Admin</option>
+                                </select>
+                            </div>
                         </div>
                             <div class="form-group">
                                 <label>Photo</label>
                                 <input type="file" id="player-photo" accept="image/*">
                             </div>
-                        </div>
                         <div id="photo-preview" class="photo-preview"></div>
                         <div class="rating-fields">
                             <h4>Ratings</h4>
@@ -312,6 +371,15 @@
                                         <option value="non-member">Non-Member</option>
                                     </select>
                                 </div>
+                                <div class="form-group">
+                                    <label>Role</label>
+                                    <select id="edit-player-role">
+                                        <option value="">None</option>
+                                        <option value="coach">Coach</option>
+                                        <option value="developer">Developer</option>
+                                        <option value="admin">Admin</option>
+                                    </select>
+                                </div>
                             </div>
                             <div class="form-group">
                                 <label>Birth Year</label>
@@ -362,19 +430,290 @@
                     </div>
                 </div>
 
+                <!-- Edit Game Modal -->
+                <div id="edit-game-modal" class="modal" style="display:none">
+                    <div class="modal-content">
+                        <span class="modal-close" onclick="document.getElementById('edit-game-modal').style.display='none'">&times;</span>
+                        <h3 style="color:var(--accent);margin-bottom:1rem">Edit Game</h3>
+                        <form id="edit-game-form">
+                            <input type="hidden" id="edit-game-id">
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label>White</label>
+                                    <input type="text" id="edit-game-white-name">
+                                </div>
+                                <div class="form-group">
+                                    <label>Black</label>
+                                    <input type="text" id="edit-game-black-name">
+                                </div>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label>White Elo</label>
+                                    <input type="number" id="edit-game-white-elo" min="0" max="3000">
+                                </div>
+                                <div class="form-group">
+                                    <label>Black Elo</label>
+                                    <input type="number" id="edit-game-black-elo" min="0" max="3000">
+                                </div>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label>Time Control</label>
+                                    <select id="edit-game-time-control">
+                                        <option value="">Any</option>
+                                        <option value="bullet">Bullet</option>
+                                        <option value="blitz">Blitz</option>
+                                        <option value="rapid">Rapid</option>
+                                        <option value="standard">Standard</option>
+                                    </select>
+                                </div>
+                            </div>
+                                <div class="form-group">
+                                    <label>Result</label>
+                                    <select id="edit-game-result">
+                                        <option value="*">In Progress (*)</option>
+                                        <option value="1-0">White Wins (1-0)</option>
+                                        <option value="0-1">Black Wins (0-1)</option>
+                                        <option value="1/2-1/2">Draw (½-½)</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label>Date</label>
+                                    <input type="text" id="edit-game-date" placeholder="YYYY.MM.DD">
+                                </div>
+                                <div class="form-group">
+                                    <label>Event</label>
+                                    <input type="text" id="edit-game-event">
+                                </div>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label>ECO</label>
+                                    <input type="text" id="edit-game-eco" placeholder="e.g. B33" maxlength="5">
+                                </div>
+                                <div class="form-group">
+                                    <label>Opening</label>
+                                    <input type="text" id="edit-game-opening">
+                                </div>
+                            </div>
+                            <div style="display:flex;gap:0.75rem;margin-top:1rem">
+                                <button type="submit" class="btn-primary">Save Changes</button>
+                                <button type="button" class="btn-secondary" onclick="document.getElementById('edit-game-modal').style.display='none'" style="margin-top:0">Cancel</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+
                 <!-- Manage Games Tab -->
                 <div id="tab-manage-games" class="tab-content">
                     <div id="admin-game-list" class="game-list admin-game-list">
                         <p class="empty-state">No games to manage.</p>
                     </div>
                 </div>
+                <div id="tab-manage-tournaments" class="tab-content">
+                    <h3>Add Tournament</h3>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Tournament Name</label>
+                            <input type="text" id="tournament-name" placeholder="Tournament name">
+                        </div>
+                        <div class="form-group">
+                            <label>Location</label>
+                            <input type="text" id="tournament-location" placeholder="Venue / City">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Start Date</label>
+                            <input type="text" id="tournament-start" placeholder="MM/DD/YYYY">
+                        </div>
+                        <div class="form-group">
+                            <label>End Date</label>
+                            <input type="text" id="tournament-end" placeholder="MM/DD/YYYY">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Format</label>
+                            <input type="text" id="tournament-format" placeholder="e.g. Swiss, Round Robin">
+                        </div>
+                        <div class="form-group">
+                            <label>Time Control</label>
+                            <select id="tournament-time-control">
+                                <option value="">Any</option>
+                                <option value="bullet">Bullet</option>
+                                <option value="blitz">Blitz</option>
+                                <option value="rapid">Rapid</option>
+                                <option value="standard">Standard</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Current Round</label>
+                            <input type="number" id="tournament-round" min="0" placeholder="e.g. 5">
+                        </div>
+                        <div class="form-group">
+                            <label>Status</label>
+                            <select id="tournament-status">
+                                <option value="active">Active</option>
+                                <option value="upcoming">Upcoming</option>
+                                <option value="completed">Completed</option>
+                                <option value="cancelled">Cancelled</option>
+                            </select>
+                        </div>
+                    </div>
+                    <button id="btn-save-tournament" class="btn-primary">Save Tournament</button>
+                    <div id="admin-tournament-participants" class="admin-tournament-participants" style="display:none">
+                        <h3 style="margin-top:1.5rem">Manage Players</h3>
+                        <div class="form-row">
+                            <div class="form-group" style="flex:2">
+                                <label>Add Player</label>
+                                <select id="tournament-player-select"><option value="">Select a player...</option></select>
+                            </div>
+                            <div class="form-group" style="flex:0">
+                                <label>&nbsp;</label>
+                                <button id="btn-add-tournament-player" class="btn-primary">Add</button>
+                            </div>
+                        </div>
+                        <div id="admin-tournament-player-list" class="admin-tournament-player-list"></div>
+                    </div>
+                    <h3 style="margin-top:1.5rem">Existing Tournaments</h3>
+                    <div id="admin-tournament-list" class="game-list admin-game-list">
+                        <p class="empty-state">No tournaments yet.</p>
+                    </div>
+                </div>
             </div>
         </div>
+        <!-- Changelog Page -->
+        <div id="page-changelog" class="page">
+            <div class="changelog-container">
+                <h2>Update Log</h2>
+
+                <div class="changelog-entry">
+                    <div class="changelog-header">
+                        <span class="changelog-version">v1.0.5</span>
+                        <span class="changelog-date">July 22, 2026</span>
+                    </div>
+                    <ul class="changelog-list">
+                        <li>Added Most Played Time Control on Statistics</li>
+                        <li>Bug fixed - Game by Year on Statistics not detecting the year when the game happened.</li>
+                    </ul>
+                </div>
+
+                <div class="changelog-entry">
+                    <div class="changelog-header">
+                        <span class="changelog-version">v1.0.4</span>
+                        <span class="changelog-date">July 21, 2026</span>
+                    </div>
+                    <ul class="changelog-list">
+                        <li>Added score result next to the players name</li>
+                        <li>Bug fixed - Where Stockfish gives inaccurate data based on the position</li>
+                        <li>Bug fixed - Evaluation bar won't start</li>
+                        <li>Bug fixed - When the next move button is clicked too fast, it makes the evaluation bar stop/freeze</li>
+                        <li>Bug fixed - The evaluation bar stopped working when the move 39 was reached</li>
+                        <li>Bug fixed - Where the evaluation bar stops working when there is a checkmate incoming</li>
+                        <li>Bug fixed - When you move to another game, the evaluation bar disappears</li>
+                    </ul>
+                </div>
+
+                <div class="changelog-entry">
+                    <div class="changelog-header">
+                        <span class="changelog-version">v1.0.3</span>
+                        <span class="changelog-date">July 21, 2026</span>
+                    </div>
+                    <ul class="changelog-list">
+                        <li>Bug fixed - Chess notation is missing some symbols, the check symbol (+), and the checkmate symbol (#)</li>
+                        <li>Bug fixed - Evaluation bar won't flip if you flip the board</li>
+                    </ul>
+                </div>
+
+                <div class="changelog-entry">
+                    <div class="changelog-header">
+                        <span class="changelog-version">v1.0.2</span>
+                        <span class="changelog-date">July 21, 2026</span>
+                    </div>
+                    <ul class="changelog-list">
+                        <li>Added background music</li>
+                        <li>Added Evaluation Bar</li>
+                    </ul>
+                </div>
+
+                <div class="changelog-entry">
+                    <div class="changelog-header">
+                        <span class="changelog-version">v1.0.1</span>
+                        <span class="changelog-date">July 21, 2026</span>
+                    </div>
+                    <ul class="changelog-list">
+                        <li>Bug fixed - The color setup on the chessboard is wrong</li>
+                        <li>Classical rating fixed</li>
+                    </ul>
+                </div>
+
+                <div class="changelog-entry">
+                    <div class="changelog-header">
+                        <span class="changelog-version">v1.0.0</span>
+                        <span class="changelog-date">July 21, 2026</span>
+                    </div>
+                    <ul class="changelog-list">
+                        <li>Official release of the website; a lot of bugs are still expected. If you found a bug, just report it to the developer/admin.</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
     </main>
+
+    <div id="music-toggle" class="music-toggle" title="Toggle music">
+        <span id="music-icon">&#128263;</span>
+    </div>
+
+    <div class="version-tag">v1.0.5</div>
 
     <script src="js/chess.js"></script>
     <script src="js/pgn-parser.js"></script>
     <script src="js/board.js"></script>
-    <script src="js/app.js"></script>
+    <script src="js/app.js?v=1.2.2"></script>
+    <script src="js/eval-bar.js"></script>
+    <script>
+        const bgMusic = new Audio('/music/divine-confirmation.mp3');
+        bgMusic.loop = true;
+        bgMusic.volume = 0.3;
+
+        const toggle = document.getElementById('music-toggle');
+        const icon = document.getElementById('music-icon');
+        let playing = false;
+
+        function startMusic() {
+            if (playing) return;
+            bgMusic.play().then(() => {
+                playing = true;
+                icon.textContent = '\u{266B}';
+            }).catch(() => {});
+        }
+
+        bgMusic.play().then(() => {
+            playing = true;
+            icon.textContent = '\u{266B}';
+        }).catch(() => {
+            document.addEventListener('click', startMusic, { once: true });
+            document.addEventListener('keydown', startMusic, { once: true });
+        });
+
+        toggle.addEventListener('click', (e) => {
+            e.stopPropagation();
+            if (playing) {
+                bgMusic.pause();
+                icon.textContent = '\u{1F507}';
+            } else {
+                bgMusic.play();
+                icon.textContent = '\u{266B}';
+            }
+            playing = !playing;
+        });
+    </script>
 </body>
 </html>

@@ -440,6 +440,30 @@ class Chess {
             san += '=' + move.promotion.toUpperCase();
         }
 
+        const savedBoard = this.board.map(r => r.map(c => c ? { ...c } : null));
+        const savedTurn = this.turn;
+        const savedCastling = { ...this.castling };
+        const savedEnPassant = this.enPassant;
+        const savedHalfmove = this.halfmoveClock;
+        const savedFullmove = this.fullmoveNumber;
+        const savedGameOver = this.gameOver;
+
+        this.makeRawMove(move);
+
+        const opponent = savedTurn === 'w' ? 'b' : 'w';
+        if (this.isInCheck(opponent)) {
+            const hasLegalMoves = this.generateLegalMoves().length > 0;
+            san += hasLegalMoves ? '+' : '#';
+        }
+
+        this.board = savedBoard;
+        this.turn = savedTurn;
+        this.castling = savedCastling;
+        this.enPassant = savedEnPassant;
+        this.halfmoveClock = savedHalfmove;
+        this.fullmoveNumber = savedFullmove;
+        this.gameOver = savedGameOver;
+
         return san;
     }
 
@@ -498,10 +522,10 @@ class Chess {
 
         fen += ' ' + this.turn;
         let castling = '';
-        if (this.castling.K) castling += 'K';
-        if (this.castling.Q) castling += 'Q';
-        if (this.castling.k) castling += 'k';
-        if (this.castling.q) castling += 'q';
+        if (this.castling.K && this.board[7][4]?.type === 'k' && this.board[7][4]?.color === 'w' && this.board[7][7]?.type === 'r' && this.board[7][7]?.color === 'w') castling += 'K';
+        if (this.castling.Q && this.board[7][4]?.type === 'k' && this.board[7][4]?.color === 'w' && this.board[7][0]?.type === 'r' && this.board[7][0]?.color === 'w') castling += 'Q';
+        if (this.castling.k && this.board[0][4]?.type === 'k' && this.board[0][4]?.color === 'b' && this.board[0][7]?.type === 'r' && this.board[0][7]?.color === 'b') castling += 'k';
+        if (this.castling.q && this.board[0][4]?.type === 'k' && this.board[0][4]?.color === 'b' && this.board[0][0]?.type === 'r' && this.board[0][0]?.color === 'b') castling += 'q';
         fen += ' ' + (castling || '-');
         fen += ' ' + (this.enPassant ? this.coordsToAlgebraic(this.enPassant[0], this.enPassant[1]) : '-');
         fen += ' ' + this.halfmoveClock;

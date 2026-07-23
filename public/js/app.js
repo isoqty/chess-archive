@@ -12,10 +12,60 @@ class ChessApp {
         this.totalPages = 1;
         this.isAdmin = false;
         this.currentGameId = null;
+        this.currentGame = null;
+        this._pairingRound = 1;
+        this._currentTournament = null;
 
         this.initEventListeners();
         this.checkAuth();
         this.loadGames();
+        this.startAdminHeartbeat();
+        this.startOnlineStatusPoll();
+    }
+
+    formatDate(dateStr) {
+        if (!dateStr || dateStr === '????.??.??') return dateStr || '';
+        const sep = dateStr.includes('.') ? '.' : dateStr.includes('-') ? '-' : '/';
+        const parts = dateStr.split(sep);
+        if (parts.length !== 3) return dateStr;
+        if (parts[0].length === 4 && parts[0] !== '????') {
+            const [y, m, d] = parts;
+            return `${m}/${d}/${y}`;
+        }
+        if (parts[2].length === 4) {
+            return dateStr;
+        }
+        return dateStr;
+    }
+
+    startAdminHeartbeat() {
+        this.adminHeartbeatInterval = setInterval(async () => {
+            if (!this.isAdmin) return;
+            try { await fetch('/api/admin/heartbeat', { method: 'POST' }); } catch (e) {}
+        }, 30000);
+        if (this.isAdmin) {
+            fetch('/api/admin/heartbeat', { method: 'POST' }).catch(() => {});
+        }
+    }
+
+    startOnlineStatusPoll() {
+        const poll = async () => {
+            try {
+                const res = await fetch('/api/admin/online');
+                const data = await res.json();
+                const el = document.getElementById('admin-online-indicator');
+                const txt = el.querySelector('.admin-status-text');
+                if (data.online) {
+                    el.classList.add('online');
+                    txt.textContent = 'Admin Online';
+                } else {
+                    el.classList.remove('online');
+                    txt.textContent = 'Admin Offline';
+                }
+            } catch (e) {}
+        };
+        poll();
+        setInterval(poll, 15000);
     }
 
     initEventListeners() {
@@ -39,7 +89,7 @@ class ChessApp {
             clearTimeout(searchTimeout);
             searchTimeout = setTimeout(() => this.loadGames(), 300);
         });
-        document.getElementById('filter-eco').addEventListener('change', () => this.loadGames());
+        document.getElementById('filter-time-control').addEventListener('change', () => this.loadGames());
         document.getElementById('filter-year').addEventListener('change', () => this.loadGames());
 
         // Player search
@@ -72,6 +122,7 @@ class ChessApp {
                 document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
                 e.target.classList.add('active');
                 document.getElementById('tab-' + e.target.dataset.tab).classList.add('active');
+                if (e.target.dataset.tab === 'manage-tournaments') this.loadAdminTournaments();
             });
         });
 
@@ -119,6 +170,15 @@ class ChessApp {
             });
         }
 
+        // Admin - Edit Game Form
+        const editGameForm = document.getElementById('edit-game-form');
+        if (editGameForm) {
+            editGameForm.addEventListener('submit', (e) => {
+                e.preventDefault();
+                this.saveEditGame();
+            });
+        }
+
         // Admin - Player Form
         document.getElementById('player-form').addEventListener('submit', (e) => {
             e.preventDefault();
@@ -145,6 +205,13 @@ class ChessApp {
             if (e.key === 'End') this.goToEnd();
             if (e.key === ' ') { e.preventDefault(); this.toggleAutoPlay(); }
         });
+
+        document.getElementById('btn-save-tournament').addEventListener('click', () => this.saveTournament());
+        document.getElementById('btn-add-tournament-player').addEventListener('click', () => {
+            const btn = document.getElementById('btn-save-tournament');
+            const editId = btn.dataset.editId;
+            if (editId) this.addTournamentPlayer(editId);
+        });
     }
 
     // --- Navigation ---
@@ -159,6 +226,7 @@ class ChessApp {
         if (page === 'stats') this.loadStats();
         if (page === 'leaderboard') this.loadLeaderboard();
         if (page === 'admin') this.checkAuth();
+        if (page === 'tournaments') this.loadTournaments();
     }
 
     // --- Auth ---
@@ -195,6 +263,8 @@ class ChessApp {
             if (data.success) {
                 this.isAdmin = true;
                 this.updateAdminUI();
+                fetch('/api/admin/heartbeat', { method: 'POST' }).catch(() => {});
+                this.renderGameList();
                 errEl.textContent = '';
             } else {
                 errEl.textContent = data.error || 'Login failed';
@@ -208,17 +278,18 @@ class ChessApp {
         await fetch('/api/auth/logout', { method: 'POST' });
         this.isAdmin = false;
         this.updateAdminUI();
+        this.renderGameList();
     }
 
     // --- Games ---
     async loadGames(page = 1) {
         const search = document.getElementById('search-input').value;
-        const eco = document.getElementById('filter-eco').value;
+        const timeControl = document.getElementById('filter-time-control').value;
         const year = document.getElementById('filter-year').value;
 
         const params = new URLSearchParams({ page, limit: 20 });
         if (search) params.set('search', search);
-        if (eco) params.set('eco', eco);
+        if (timeControl) params.set('time_control', timeControl);
         if (year) params.set('year', year);
 
         try {
@@ -241,13 +312,18 @@ class ChessApp {
             list.innerHTML = '<p class="empty-state">No games found.</p>';
             return;
         }
-        list.innerHTML = this.games.map(g => `
+        list.innerHTML = this.games.map(g => {
+            const tc = g.time_control ? `<span class="time-control-badge">${g.time_control.charAt(0).toUpperCase() + g.time_control.slice(1)}</span>` : '';
+            const wBanned = g.white_status === 'banned' ? ' <span class="player-banned-badge">Banned</span>' : '';
+            const bBanned = g.black_status === 'banned' ? ' <span class="player-banned-badge">Banned</span>' : '';
+            return `
             <div class="game-item" data-id="${g.id}">
                 <span class="game-item-result">${g.result || '*'}</span>
-                <div class="game-item-players">${g.white_name} vs ${g.black_name}</div>
-                <div class="game-item-event">${g.event_name || ''} ${g.date || ''} ${g.eco ? '(' + g.eco + ')' : ''}</div>
+                <div class="game-item-players">${g.white_name}${wBanned} vs ${g.black_name}${bBanned}</div>
+                <div class="game-item-event">${g.event_name || ''} ${this.formatDate(g.date)} ${tc} ${g.eco ? '(' + g.eco + ')' : ''}</div>
             </div>
-        `).join('');
+            `;
+        }).join('');
 
         list.querySelectorAll('.game-item').forEach(item => {
             item.addEventListener('click', () => this.loadGameById(parseInt(item.dataset.id)));
@@ -280,12 +356,12 @@ class ChessApp {
             const openings = await openingsRes.json();
             const events = await eventsRes.json();
 
-            const ecoSelect = document.getElementById('filter-eco');
-            const currentEco = ecoSelect.value;
-            ecoSelect.innerHTML = '<option value="">All Openings</option>' +
-                openings.map(o => `<option value="${o.eco}" ${o.eco === currentEco ? 'selected' : ''}>${o.eco} - ${o.opening || o.eco} (${o.count})</option>`).join('');
-
-            const years = [...new Set(events.map(e => e.date?.substring(0, 4)).filter(Boolean))].sort().reverse();
+            const extractYear = (d) => {
+                if (!d) return '';
+                if (d.includes('/') && d.length >= 10) return d.substring(6, 10);
+                return d.substring(0, 4);
+            };
+            const years = [...new Set(events.map(e => extractYear(e.date)).filter(y => y && y !== '????'))].sort().reverse();
             const yearSelect = document.getElementById('filter-year');
             const currentYear = yearSelect.value;
             yearSelect.innerHTML = '<option value="">All Years</option>' +
@@ -305,18 +381,32 @@ class ChessApp {
     loadGameIntoBoard(game) {
         this.chess.reset();
         this.currentMoveIndex = -1;
+        this.currentGame = game;
 
+        let wBadge = '', bBadge = '';
+        if (game.result === '1-0') { wBadge = ' <span class="result-badge result-win">1</span>'; bBadge = ' <span class="result-badge result-loss">0</span>'; }
+        else if (game.result === '0-1') { wBadge = ' <span class="result-badge result-loss">0</span>'; bBadge = ' <span class="result-badge result-win">1</span>'; }
+        else if (game.result === '1/2-1/2') { wBadge = ' <span class="result-badge result-draw">½</span>'; bBadge = ' <span class="result-badge result-draw">½</span>'; }
         const blackTitle = game.black_title ? `<span class="title-badge">${game.black_title}</span> ` : '';
         const whiteTitle = game.white_title ? `<span class="title-badge">${game.white_title}</span> ` : '';
-        document.getElementById('player-top').querySelector('.player-name').innerHTML = blackTitle + game.black_name;
+        const wBanned = game.white_status === 'banned' ? ' <span class="player-banned-badge">Banned</span>' : '';
+        const bBanned = game.black_status === 'banned' ? ' <span class="player-banned-badge">Banned</span>' : '';
+        document.getElementById('player-top').querySelector('.player-name').innerHTML = blackTitle + game.black_name + bBanned + bBadge;
         document.getElementById('player-top').querySelector('.player-rating').textContent = game.black_elo || '';
-        document.getElementById('player-bottom').querySelector('.player-name').innerHTML = whiteTitle + game.white_name;
+        const topPhoto = document.getElementById('player-top').querySelector('.player-bar-photo');
+        if (game.black_photo) { topPhoto.src = game.black_photo; topPhoto.style.display = 'inline-block'; } else { topPhoto.style.display = 'none'; }
+        document.getElementById('player-bottom').querySelector('.player-name').innerHTML = whiteTitle + game.white_name + wBanned + wBadge;
         document.getElementById('player-bottom').querySelector('.player-rating').textContent = game.white_elo || '';
+        const botPhoto = document.getElementById('player-bottom').querySelector('.player-bar-photo');
+        if (game.white_photo) { botPhoto.src = game.white_photo; botPhoto.style.display = 'inline-block'; } else { botPhoto.style.display = 'none'; }
 
         document.getElementById('info-event').textContent = game.event_name || '-';
-        document.getElementById('info-date').textContent = game.date || '-';
+        document.getElementById('info-date').textContent = this.formatDate(game.date) || '-';
         document.getElementById('info-result').textContent = game.result || '-';
-        document.getElementById('info-eco').textContent = (game.eco || '-') + (game.opening ? ' - ' + game.opening : '');
+        const opening = game.eco ? (game.eco + (game.opening ? ' - ' + game.opening : '')) : (game.opening || '-');
+        document.getElementById('info-opening').textContent = opening;
+        const tc = game.time_control || '';
+        document.getElementById('info-time-control').textContent = tc ? tc.charAt(0).toUpperCase() + tc.slice(1) : '-';
 
         const pgnMoves = game.moves_pgn || '';
         const moveTokens = pgnMoves.split(/\s+/).filter(t => t && !t.match(/^\d+\.+$/) && t !== '1-0' && t !== '0-1' && t !== '1/2-1/2' && t !== '*');
@@ -332,7 +422,9 @@ class ChessApp {
 
         this.board.update(this.chess);
         this.renderMoveList();
+        if (typeof evalBar !== 'undefined') evalBar.evaluate(this.chess.toFEN());
         this.highlightGameInList(game.id);
+        this.updateGameEndOverlay();
     }
 
     highlightGameInList(id) {
@@ -367,6 +459,74 @@ class ChessApp {
         });
     }
 
+    getGameEndInfo() {
+        if (!this.currentGame) return null;
+        const game = this.currentGame;
+        const result = game.result;
+        if (!result || result === '*') return null;
+
+        const isDraw = result === '1/2-1/2';
+        const termination = (game.termination || '').toLowerCase();
+        let loserReason = 'resign';
+        if (termination.includes('timeout') || termination.includes('time') || termination.includes('flag') || termination.includes('forfeit')) {
+            loserReason = 'timeout';
+        } else if (termination.includes('checkmate') || termination === 'normal' || !termination) {
+            if (this.chess.gameOver && this.chess.moveHistory.length > 0) {
+                const lastMove = this.chess.moveHistory[this.chess.moveHistory.length - 1];
+                if (lastMove && lastMove.checkmate) loserReason = 'checkmate';
+                else loserReason = 'resign';
+            } else {
+                loserReason = 'resign';
+            }
+        } else if (termination.includes('resign')) {
+            loserReason = 'resign';
+        }
+
+        const loserIsWhite = result === '0-1';
+        return { result, loserReason, loserIsWhite, isDraw };
+    }
+
+    updateGameEndOverlay() {
+        this.board.clearGameEndOverlays();
+        const endInfo = this.getGameEndInfo();
+        if (!endInfo) return;
+        const isAtEnd = this.parsedMoves && this.currentMoveIndex === this.parsedMoves.length - 1;
+        if (!isAtEnd) return;
+
+        const { loserReason, loserIsWhite, isDraw } = endInfo;
+        const board = this.chess.board;
+
+        let whiteKingFile = -1, whiteKingRank = -1;
+        let blackKingFile = -1, blackKingRank = -1;
+        for (let r = 0; r < 8; r++) {
+            for (let f = 0; f < 8; f++) {
+                const p = board[r][f];
+                if (p && p.type === 'k') {
+                    if (p.color === 'w') { whiteKingFile = f; whiteKingRank = r; }
+                    else { blackKingFile = f; blackKingRank = r; }
+                }
+            }
+        }
+
+        if (isDraw) {
+            if (whiteKingFile >= 0) this.board.showGameEndOverlay(whiteKingFile, whiteKingRank, 'Draw', '\u00BD', 'draw', 'draw');
+            if (blackKingFile >= 0) this.board.showGameEndOverlay(blackKingFile, blackKingRank, 'Draw', '\u00BD', 'draw', 'draw');
+            return;
+        }
+
+        const reasonIcons = { resign: '\u{1F6A9}', timeout: '\u{23F0}\u2716\uFE0F', checkmate: '\u265A' };
+        const reasonLabels = { resign: 'Resign', timeout: 'Timeout', checkmate: 'Checkmate' };
+        const winnerIcon = '\u{1F451}';
+
+        if (loserIsWhite) {
+            if (whiteKingFile >= 0) this.board.showGameEndOverlay(whiteKingFile, whiteKingRank, reasonLabels[loserReason], reasonIcons[loserReason], loserReason === 'checkmate' ? 'checkmate-loser' : '', 'loser');
+            if (blackKingFile >= 0) this.board.showGameEndOverlay(blackKingFile, blackKingRank, 'Winner', winnerIcon, 'winner', 'winner');
+        } else {
+            if (blackKingFile >= 0) this.board.showGameEndOverlay(blackKingFile, blackKingRank, reasonLabels[loserReason], reasonIcons[loserReason], loserReason === 'checkmate' ? 'checkmate-loser' : '', 'loser');
+            if (whiteKingFile >= 0) this.board.showGameEndOverlay(whiteKingFile, whiteKingRank, 'Winner', winnerIcon, 'winner', 'winner');
+        }
+    }
+
     goToMove(index) {
         if (!this.parsedMoves) return;
         if (index < -1 || index >= this.parsedMoves.length) return;
@@ -381,6 +541,8 @@ class ChessApp {
         const lastMoveCoords = lastMove ? { from: lastMove.move.from, to: lastMove.move.to } : null;
         this.board.update(this.chess, lastMoveCoords);
         this.updateMoveHighlight();
+        if (typeof evalBar !== 'undefined') evalBar.evaluate(this.chess.toFEN());
+        this.updateGameEndOverlay();
     }
 
     updateMoveHighlight() {
@@ -404,6 +566,8 @@ class ChessApp {
         this.currentMoveIndex = -1;
         this.board.update(this.chess);
         this.updateMoveHighlight();
+        if (typeof evalBar !== 'undefined') evalBar.evaluate(this.chess.toFEN());
+        this.updateGameEndOverlay();
     }
 
     goToEnd() {
@@ -413,10 +577,12 @@ class ChessApp {
 
     flipBoard() {
         this.board.flip();
+        document.querySelector('.eval-bar-container').classList.toggle('flipped');
         const lastMove = this.currentMoveIndex >= 0 && this.parsedMoves
             ? { from: this.parsedMoves[this.currentMoveIndex].move.from, to: this.parsedMoves[this.currentMoveIndex].move.to }
             : null;
         this.board.update(this.chess, lastMove);
+        this.updateGameEndOverlay();
     }
 
     toggleAutoPlay() {
@@ -435,6 +601,461 @@ class ChessApp {
                 this.nextMove();
             }, this.autoPlaySpeed);
         }
+    }
+
+    // --- Tournaments ---
+    async loadTournaments() {
+        try {
+            const res = await fetch('/api/tournaments?t=' + Date.now());
+            const tournaments = await res.json();
+            this.renderTournaments(tournaments);
+        } catch (e) {}
+    }
+
+    renderTournaments(tournaments) {
+        const list = document.getElementById('tournament-list');
+        if (!tournaments.length) {
+            list.innerHTML = '<p class="empty-state">No tournaments found.</p>';
+            return;
+        }
+        const statusColors = { active: '#22c55e', upcoming: '#f59e0b', completed: '#6b7280', cancelled: '#ef4444' };
+        list.innerHTML = tournaments.map(t => `
+            <div class="tournament-card" data-tournament-id="${t.id}" onclick="app.toggleTournament(${t.id})">
+                <div class="tournament-card-header">
+                    <span class="tournament-status" style="background:${statusColors[t.status] || '#6b7280'}">${(t.status || 'active').charAt(0).toUpperCase() + (t.status || 'active').slice(1)}</span>
+                    <h3 class="tournament-name">${t.name}</h3>
+                </div>
+                <div class="tournament-card-meta">
+                    ${t.location ? `<span class="tournament-meta-item">📍 ${t.location}</span>` : ''}
+                    ${t.date_start ? `<span class="tournament-meta-item">📅 ${t.date_start}${t.date_end ? ' - ' + t.date_end : ''}</span>` : ''}
+                    ${t.format ? `<span class="tournament-meta-item">⚙ ${t.format}</span>` : ''}
+                    ${t.time_control ? `<span class="tournament-meta-item">⏱ ${t.time_control.charAt(0).toUpperCase() + t.time_control.slice(1)}</span>` : ''}
+                </div>
+                <div class="tournament-detail-panel" id="tournament-detail-${t.id}"></div>
+            </div>
+        `).join('');
+    }
+
+    async toggleTournament(id) {
+        const panel = document.getElementById(`tournament-detail-${id}`);
+        if (!panel) return;
+        if (panel.classList.contains('open')) {
+            panel.classList.remove('open');
+            panel.innerHTML = '';
+            return;
+        }
+        // Close any other open panels first
+        document.querySelectorAll('.tournament-detail-panel.open').forEach(p => {
+            p.classList.remove('open');
+            p.innerHTML = '';
+        });
+        panel.innerHTML = '<div class="tournament-loading">Loading...</div>';
+        panel.classList.add('open');
+        panel.onclick = (e) => e.stopPropagation();
+        try {
+            const res = await fetch(`/api/tournaments/${id}?t=` + Date.now());
+            const t = await res.json();
+            this.renderTournamentParticipants(panel, t);
+        } catch (e) {
+            panel.innerHTML = '<div class="tournament-empty">Failed to load participants.</div>';
+        }
+    }
+
+    renderTournamentParticipants(panel, t) {
+        const tcLabel = t.time_control ? t.time_control.charAt(0).toUpperCase() + t.time_control.slice(1) : '';
+        const isSwiss = (t.format || '').toLowerCase().includes('swiss');
+        const roundLabel = t.current_round ? `Standings after Round ${t.current_round}` : '';
+        const infoHtml = `
+            <div class="tournament-standings-info">
+                ${tcLabel ? `<span class="tournament-standings-tc">Time Control: ${tcLabel}</span>` : ''}
+                ${roundLabel ? `<span class="tournament-standings-round">${roundLabel}</span>` : ''}
+                <span class="tournament-standings-tabs">
+                    <button class="tournament-tab-btn active" onclick="event.stopPropagation();app.showTournamentTab(${t.id}, 'standings', this)">Standings</button>
+                    <button class="tournament-tab-btn" onclick="event.stopPropagation();app.showTournamentTab(${t.id}, 'pairings', this)">Pairings</button>
+                </span>
+            </div>`;
+        if (!t.participants || !t.participants.length) {
+            panel.innerHTML = `<div class="tournament-standings">${infoHtml}<div class="tournament-tab-content" data-tab="standings"><div class="tournament-empty">No players added yet.</div></div></div>`;
+            this._currentTournament = t;
+            return;
+        }
+        const rows = t.participants.map((p, i) => {
+            const title = p.title ? `<span class="player-title-badge">${p.title}</span>` : '';
+            const rating = p.rating || p.rating_rapid || p.rating_blitz || p.rating_classical || p.rating_bullet || 0;
+            const photo = p.photo ? `<img src="${p.photo}" class="participant-photo" alt="">` : `<div class="participant-photo participant-photo-placeholder">${(p.name || '?')[0]}</div>`;
+            return `
+                <div class="tournament-player-row">
+                    <span class="tp-rank">${i + 1}</span>
+                    <span class="tp-info">${photo}<span class="tp-name">${title} ${p.name}</span></span>
+                    <span class="tp-rating">${rating}</span>
+                    <span class="tp-score">${p.score}</span>
+                    ${isSwiss ? `<span class="tp-tb">${p.buc1}</span>` : ''}
+                    <span class="tp-tb">${p.berger}</span>
+                    <span class="tp-tb">${p.de}</span>
+                    ${isSwiss ? `<span class="tp-tb">${p.wins}</span>` : ''}
+                </div>`;
+        }).join('');
+        panel.innerHTML = `
+            <div class="tournament-standings ${isSwiss ? 'swiss' : 'round-robin'}">
+                ${infoHtml}
+                <div class="tournament-tab-content" data-tab="standings">
+                    <div class="tournament-standings-header">
+                        <span class="tp-rank">#</span>
+                        <span class="tp-info">Player</span>
+                        <span class="tp-rating">Rating</span>
+                        <span class="tp-score">Score</span>
+                        ${isSwiss ? '<span class="tp-tb">Buc1</span>' : ''}
+                        <span class="tp-tb">Ber</span>
+                        <span class="tp-tb">DE</span>
+                        ${isSwiss ? '<span class="tp-tb">Wins</span>' : ''}
+                    </div>
+                    ${rows}
+                </div>
+                <div class="tournament-tab-content" data-tab="pairings" style="display:none"></div>
+            </div>`;
+        this._currentTournament = t;
+    }
+
+    async showTournamentTab(tournamentId, tab, btn) {
+        const panel = document.getElementById(`tournament-detail-${tournamentId}`);
+        if (!panel) return;
+        await this.checkAuth();
+        panel.querySelectorAll('.tournament-tab-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        panel.querySelectorAll('.tournament-tab-content').forEach(c => c.style.display = 'none');
+        const content = panel.querySelector(`.tournament-tab-content[data-tab="${tab}"]`);
+        if (content) content.style.display = '';
+        if (tab === 'pairings' && content) {
+            await this.loadPairings(tournamentId, content);
+        }
+    }
+
+    async loadPairings(tournamentId, container) {
+        const t = this._currentTournament;
+        const currentRound = t ? t.current_round || 1 : 1;
+        const round = this._pairingRound || currentRound;
+        await this.checkAuth();
+        try {
+            const res = await fetch(`/api/tournaments/${tournamentId}/pairings?round=${round}&t=` + Date.now());
+            const pairings = await res.json();
+            this.renderPairings(container, tournamentId, pairings, t, round);
+        } catch (e) {
+            container.innerHTML = '<div class="tournament-empty">Failed to load pairings.</div>';
+        }
+    }
+
+    renderPairings(container, tournamentId, pairings, t, round) {
+        const currentRound = t ? t.current_round || 1 : 1;
+        const isAdmin = this.isAdmin;
+        let roundSelector = '<div class="pairing-round-selector">';
+        for (let r = 1; r <= Math.max(currentRound, round); r++) {
+            roundSelector += `<button class="pairing-round-btn ${r === round ? 'active' : ''}" onclick="app._pairingRound=${r};app.loadPairings(${tournamentId},this.closest('.tournament-tab-content').parentElement.querySelector('[data-tab=pairings]'))">R${r}</button>`;
+        }
+        roundSelector += '</div>';
+
+        let pairingRows = '';
+        if (pairings.length === 0) {
+            pairingRows = '<div class="tournament-empty">No pairings for this round.</div>';
+        } else {
+            pairingRows = pairings.map(p => {
+                const whiteName = p.white_name || 'Bye';
+                const whiteTitle = p.white_title ? `<span class="player-title-badge">${p.white_title}</span>` : '';
+                const blackName = p.black_name || 'Bye';
+                const blackTitle = p.black_title ? `<span class="player-title-badge">${p.black_title}</span>` : '';
+                const resultDisplay = p.result || '-';
+                let adminActions = '';
+                if (isAdmin) {
+                    adminActions = `<span class="pairing-actions">
+                        <button class="btn-icon" onclick="app.editPairing(${tournamentId},${p.id})" title="Edit">&#9998;</button>
+                        <button class="btn-icon btn-icon-danger" onclick="app.deletePairing(${tournamentId},${p.id})" title="Delete">&times;</button>
+                    </span>`;
+                }
+                return `<div class="pairing-row" data-pairing-id="${p.id}">
+                    <span class="pairing-board">${p.board_number}</span>
+                    <span class="pairing-white">${whiteTitle} ${whiteName}</span>
+                    <span class="pairing-result">${resultDisplay}</span>
+                    <span class="pairing-black">${blackTitle} ${blackName}</span>
+                    ${adminActions}
+                </div>`;
+            }).join('');
+        }
+
+        let addForm = '';
+        if (isAdmin) {
+            addForm = this._buildPairingForm(tournamentId, round, t);
+        }
+
+        container.innerHTML = `
+            ${roundSelector}
+            <div class="pairing-list">
+                <div class="pairing-list-header">
+                    <span class="pairing-board">Bd</span>
+                    <span class="pairing-white">White</span>
+                    <span class="pairing-result">Res</span>
+                    <span class="pairing-black">Black</span>
+                    ${isAdmin ? '<span class="pairing-actions"></span>' : ''}
+                </div>
+                ${pairingRows}
+            </div>
+            ${addForm}
+        `;
+    }
+
+    _buildPairingForm(tournamentId, round, t) {
+        const players = t ? (t.participants || []).map(p => `<option value="${p.id}">${p.title ? p.title + ' ' : ''}${p.name}</option>`).join('') : '';
+        const results = ['', '1-0', '0-1', '1/2-1/2', '*', 'Bye'].map(r => `<option value="${r}">${r || '-'}</option>`).join('');
+        return `
+            <div class="pairing-add-form" id="pairing-add-form-${tournamentId}">
+                <h4>Add Pairing</h4>
+                <div class="pairing-form-row">
+                    <label>Board <input type="number" id="pairing-board-${tournamentId}" min="1" value="1" style="width:50px"></label>
+                    <label>Round <input type="number" id="pairing-round-input-${tournamentId}" min="1" value="${round}" style="width:50px"></label>
+                    <label>White <select id="pairing-white-${tournamentId}"><option value="">Bye</option>${players}</select></label>
+                    <label>Black <select id="pairing-black-${tournamentId}"><option value="">Bye</option>${players}</select></label>
+                    <label>Result <select id="pairing-result-${tournamentId}">${results}</select></label>
+                    <button class="btn-primary-sm" onclick="app.savePairing(${tournamentId})">Add</button>
+                </div>
+            </div>
+        `;
+    }
+
+    async savePairing(tournamentId, editId) {
+        const data = {
+            board_number: parseInt(document.getElementById(`pairing-board-${tournamentId}`).value) || 1,
+            round_number: parseInt(document.getElementById(`pairing-round-input-${tournamentId}`).value) || 1,
+            white_player_id: parseInt(document.getElementById(`pairing-white-${tournamentId}`).value) || null,
+            black_player_id: parseInt(document.getElementById(`pairing-black-${tournamentId}`).value) || null,
+            result: document.getElementById(`pairing-result-${tournamentId}`).value
+        };
+        try {
+            if (editId) {
+                await fetch(`/api/tournaments/${tournamentId}/pairings/${editId}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
+            } else {
+                await fetch(`/api/tournaments/${tournamentId}/pairings`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
+            }
+            this._pairingRound = data.round_number;
+            const container = document.querySelector(`#tournament-detail-${tournamentId} .tournament-tab-content[data-tab="pairings"]`);
+            if (container) await this.loadPairings(tournamentId, container);
+        } catch (e) {}
+    }
+
+    async editPairing(tournamentId, pairingId) {
+        try {
+            const res = await fetch(`/api/tournaments/${tournamentId}/pairings?t=` + Date.now());
+            const pairings = await res.json();
+            const p = pairings.find(x => x.id === pairingId);
+            if (!p) return;
+            const container = document.querySelector(`#tournament-detail-${tournamentId} .tournament-tab-content[data-tab="pairings"]`);
+            const form = document.getElementById(`pairing-add-form-${tournamentId}`);
+            if (form) {
+                document.getElementById(`pairing-board-${tournamentId}`).value = p.board_number || 1;
+                document.getElementById(`pairing-round-input-${tournamentId}`).value = p.round_number || 1;
+                document.getElementById(`pairing-white-${tournamentId}`).value = p.white_player_id || '';
+                document.getElementById(`pairing-black-${tournamentId}`).value = p.black_player_id || '';
+                document.getElementById(`pairing-result-${tournamentId}`).value = p.result || '';
+                const btn = form.querySelector('.btn-primary-sm');
+                if (btn) {
+                    btn.textContent = 'Update';
+                    btn.onclick = () => { this.savePairing(tournamentId, pairingId); btn.textContent = 'Add'; btn.onclick = () => this.savePairing(tournamentId); };
+                }
+            }
+        } catch (e) {}
+    }
+
+    async deletePairing(tournamentId, pairingId) {
+        if (!confirm('Delete this pairing?')) return;
+        try {
+            await fetch(`/api/tournaments/${tournamentId}/pairings/${pairingId}`, { method: 'DELETE' });
+            const container = document.querySelector(`#tournament-detail-${tournamentId} .tournament-tab-content[data-tab="pairings"]`);
+            if (container) await this.loadPairings(tournamentId, container);
+        } catch (e) {}
+    }
+
+    async loadAdminTournaments() {
+        try {
+            const res = await fetch('/api/tournaments?t=' + Date.now());
+            const tournaments = await res.json();
+            this.renderAdminTournaments(tournaments);
+        } catch (e) {}
+    }
+
+    renderAdminTournaments(tournaments) {
+        const list = document.getElementById('admin-tournament-list');
+        if (!tournaments.length) {
+            list.innerHTML = '<p class="empty-state">No tournaments yet.</p>';
+            return;
+        }
+        list.innerHTML = tournaments.map(t => `
+            <div class="game-item">
+                <button class="game-item-delete" onclick="app.deleteTournament(${t.id})">Delete</button>
+                <button class="game-edit-btn" onclick="app.editTournament(${t.id})">Edit</button>
+                <div class="game-item-players">${t.name}</div>
+                <div class="game-item-event">${t.location || ''} ${t.date_start || ''} - ${t.date_end || ''} [${t.status}]${t.current_round ? ' Round ' + t.current_round : ''}</div>
+            </div>
+        `).join('');
+    }
+
+    async editTournament(id) {
+        try {
+            this._currentEditId = id;
+            const res = await fetch(`/api/tournaments/${id}?t=` + Date.now());
+            if (this._currentEditId !== id) return;
+            const t = await res.json();
+            document.getElementById('tournament-name').value = t.name || '';
+            document.getElementById('tournament-location').value = t.location || '';
+            document.getElementById('tournament-start').value = t.date_start || '';
+            document.getElementById('tournament-end').value = t.date_end || '';
+            document.getElementById('tournament-format').value = t.format || '';
+            document.getElementById('tournament-time-control').value = t.time_control || '';
+            document.getElementById('tournament-round').value = t.current_round || '';
+            document.getElementById('tournament-status').value = t.status || 'active';
+            document.getElementById('btn-save-tournament').dataset.editId = id;
+            document.getElementById('btn-save-tournament').textContent = 'Update Tournament';
+            document.getElementById('admin-tournament-participants').style.display = '';
+            document.getElementById('admin-tournament-player-list').innerHTML = '<p class="empty-state">Loading...</p>';
+            document.getElementById('tournament-player-select').innerHTML = '<option value="">Select a player...</option>';
+            await this.loadTournamentParticipantDropdown(id);
+            if (this._currentEditId !== id) return;
+            await this.loadAdminTournamentPlayers(id);
+        } catch (e) {}
+    }
+
+    async saveTournament() {
+        const data = {
+            name: document.getElementById('tournament-name').value,
+            location: document.getElementById('tournament-location').value,
+            date_start: document.getElementById('tournament-start').value,
+            date_end: document.getElementById('tournament-end').value,
+            format: document.getElementById('tournament-format').value,
+            time_control: document.getElementById('tournament-time-control').value,
+            current_round: parseInt(document.getElementById('tournament-round').value) || 0,
+            status: document.getElementById('tournament-status').value
+        };
+        if (!data.name) return alert('Tournament name is required');
+        const btn = document.getElementById('btn-save-tournament');
+        const editId = btn.dataset.editId;
+        try {
+            if (editId) {
+                await fetch(`/api/tournaments/${editId}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
+                delete btn.dataset.editId;
+                btn.textContent = 'Save Tournament';
+            } else {
+                await fetch('/api/tournaments', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
+            }
+            ['tournament-name', 'tournament-location', 'tournament-start', 'tournament-end', 'tournament-format', 'tournament-time-control', 'tournament-round'].forEach(id => document.getElementById(id).value = '');
+            document.getElementById('tournament-status').value = 'active';
+            document.getElementById('admin-tournament-participants').style.display = 'none';
+            document.getElementById('admin-tournament-player-list').innerHTML = '';
+            document.getElementById('tournament-player-select').innerHTML = '<option value="">Select a player...</option>';
+            delete btn.dataset.editId;
+            btn.textContent = 'Save Tournament';
+            this._currentEditId = null;
+            this.loadAdminTournaments();
+        } catch (e) {}
+    }
+
+    async deleteTournament(id) {
+        if (!confirm('Delete this tournament?')) return;
+        try {
+            await fetch(`/api/tournaments/${id}`, { method: 'DELETE' });
+            document.getElementById('admin-tournament-participants').style.display = 'none';
+            this.loadAdminTournaments();
+        } catch (e) {}
+    }
+
+    async loadTournamentParticipantDropdown(tournamentId) {
+        try {
+            const [playersRes, tRes] = await Promise.all([
+                fetch('/api/players'),
+                fetch(`/api/tournaments/${tournamentId}?t=` + Date.now())
+            ]);
+            if (this._currentEditId !== tournamentId) return;
+            const players = await playersRes.json();
+            const t = await tRes.json();
+            const existingIds = new Set((t.participants || []).map(p => p.id));
+            const sel = document.getElementById('tournament-player-select');
+            sel.innerHTML = '<option value="">Select a player...</option>' +
+                players.filter(p => !existingIds.has(p.id)).map(p =>
+                    `<option value="${p.id}">${p.title ? p.title + ' ' : ''}${p.name} (${p.rating || p.rating_rapid || p.rating_blitz || p.rating_classical || p.rating_bullet || 0})</option>`
+                ).join('');
+        } catch (e) {}
+    }
+
+    async loadAdminTournamentPlayers(tournamentId) {
+        try {
+            const res = await fetch(`/api/tournaments/${tournamentId}`);
+            if (this._currentEditId !== tournamentId) return;
+            const t = await res.json();
+            const list = document.getElementById('admin-tournament-player-list');
+            if (!t.participants || !t.participants.length) {
+                list.innerHTML = '<p class="empty-state">No players in this tournament yet.</p>';
+                return;
+            }
+            const isSwiss = (t.format || '').toLowerCase().includes('swiss');
+            list.innerHTML = t.participants.map(p => {
+                const rating = p.rating || p.rating_rapid || p.rating_blitz || p.rating_classical || p.rating_bullet || 0;
+                const ms = p.manual_score !== null && p.manual_score !== undefined ? p.manual_score : '';
+                const mb = p.manual_buc1 !== null && p.manual_buc1 !== undefined ? p.manual_buc1 : '';
+                const mber = p.manual_berger !== null && p.manual_berger !== undefined ? p.manual_berger : '';
+                const mde = p.manual_de !== null && p.manual_de !== undefined ? p.manual_de : '';
+                return `
+                    <div class="admin-player-row" data-player-id="${p.id}">
+                        <span class="admin-player-name">${p.title ? `<span class="player-title-badge">${p.title}</span> ` : ''}${p.name}</span>
+                        <span class="admin-player-rating">${rating}</span>
+                        <div class="admin-player-fields">
+                            <label>Score</label>
+                            <input type="number" step="0.5" class="admin-tf-input" data-field="manual_score" value="${ms}" placeholder="${p.calc_score}">
+                            ${isSwiss ? `<label>Buc1</label><input type="number" step="0.1" class="admin-tf-input" data-field="manual_buc1" value="${mb}" placeholder="${p.buc1}">` : ''}
+                            <label>Ber</label>
+                            <input type="number" step="0.1" class="admin-tf-input" data-field="manual_berger" value="${mber}" placeholder="${p.berger}">
+                            <label>DE</label>
+                            <input type="number" step="0.1" class="admin-tf-input" data-field="manual_de" value="${mde}" placeholder="${p.de}">
+                        </div>
+                        <button class="btn-primary-sm" onclick="app.saveTournamentPlayerScores(${tournamentId}, ${p.id})">Save</button>
+                        <button class="btn-danger-sm" onclick="app.removeTournamentPlayer(${tournamentId}, ${p.id})">Remove</button>
+                    </div>`;
+            }).join('');
+        } catch (e) {}
+    }
+
+    async addTournamentPlayer(tournamentId) {
+        const sel = document.getElementById('tournament-player-select');
+        const playerId = sel.value;
+        if (!playerId) return;
+        try {
+            await fetch(`/api/tournaments/${tournamentId}/players`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ player_id: parseInt(playerId) })
+            });
+            this.loadTournamentParticipantDropdown(tournamentId);
+            this.loadAdminTournamentPlayers(tournamentId);
+        } catch (e) {}
+    }
+
+    async removeTournamentPlayer(tournamentId, playerId) {
+        try {
+            await fetch(`/api/tournaments/${tournamentId}/players/${playerId}`, { method: 'DELETE' });
+            this.loadTournamentParticipantDropdown(tournamentId);
+            this.loadAdminTournamentPlayers(tournamentId);
+        } catch (e) {}
+    }
+
+    async saveTournamentPlayerScores(tournamentId, playerId) {
+        const row = document.querySelector(`.admin-player-row[data-player-id="${playerId}"]`);
+        if (!row) return;
+        const data = {};
+        row.querySelectorAll('.admin-tf-input').forEach(input => {
+            data[input.dataset.field] = input.value;
+        });
+        try {
+            await fetch(`/api/tournaments/${tournamentId}/players/${playerId}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            });
+            this.loadAdminTournamentPlayers(tournamentId);
+        } catch (e) {}
     }
 
     // --- Players ---
@@ -523,37 +1144,39 @@ class ChessApp {
             let gamesHtml = '';
             if (data.games && data.games.length > 0) {
                 const recentGames = data.games.slice(0, 20);
-                gamesHtml = '<div class="player-detail-games"><h4>Recent Games (' + data.games.length + ' total)</h4>' +
-                    recentGames.map(g => {
-                        const isWhite = g.white_name === data.name;
-                        const opponent = isWhite ? g.black_name : g.white_name;
-                        let resultText, resultClass;
-                        if (g.result === '1-0') {
-                            resultText = isWhite ? 'Won' : 'Lost';
-                            resultClass = isWhite ? 'result-win' : 'result-loss';
-                        } else if (g.result === '0-1') {
-                            resultText = isWhite ? 'Lost' : 'Won';
-                            resultClass = isWhite ? 'result-loss' : 'result-win';
-                        } else if (g.result === '1/2-1/2') {
-                            resultText = 'Draw';
-                            resultClass = 'result-draw';
-                        } else {
-                            resultText = g.result || '*';
-                            resultClass = '';
-                        }
-                        const elo = isWhite ? g.white_elo : g.black_elo;
-                        const color = isWhite ? 'w' : 'b';
-                        return `
+                const gameItems = recentGames.map(g => {
+                    const isWhite = g.white_name === data.name;
+                    const opponent = isWhite ? g.black_name : g.white_name;
+                    let resultText, resultClass;
+                    if (g.result === '1-0') {
+                        resultText = isWhite ? 'Won' : 'Lost';
+                        resultClass = isWhite ? 'result-win' : 'result-loss';
+                    } else if (g.result === '0-1') {
+                        resultText = isWhite ? 'Lost' : 'Won';
+                        resultClass = isWhite ? 'result-loss' : 'result-win';
+                    } else if (g.result === '1/2-1/2') {
+                        resultText = 'Draw';
+                        resultClass = 'result-draw';
+                    } else {
+                        resultText = g.result || '*';
+                        resultClass = '';
+                    }
+                    const elo = isWhite ? g.white_elo : g.black_elo;
+                    const color = isWhite ? 'w' : 'b';
+                    return `
                             <div class="game-item player-game-item" data-id="${g.id}" onclick="app.loadGameById(${g.id}); document.getElementById('player-modal').style.display='none'; app.switchPage('archive');">
                                 <span class="game-item-result ${resultClass}">${resultText}</span>
                                 <div class="game-item-players">
                                     <span class="game-pieces">${color === 'w' ? '♔' : '♚'}</span>
                                     vs ${opponent} ${elo ? '(' + elo + ')' : ''}
                                 </div>
-                                <div class="game-item-event">${g.event_name || ''} ${g.date || ''} ${g.eco ? '(' + g.eco + ')' : ''}</div>
+                                <div class="game-item-event">${g.event_name || ''} ${this.formatDate(g.date)} ${g.eco ? '(' + g.eco + ')' : ''}</div>
                             </div>
                         `;
-                    }).join('') + '</div>';
+                }).join('');
+                const needsScroll = recentGames.length > 5;
+                gamesHtml = '<div class="player-detail-games"><h4>Recent Games (' + data.games.length + ' total)</h4>' +
+                    `<div class="player-games-scroll"${needsScroll ? ' style="max-height:calc(5 * 70px);overflow-y:auto"' : ''}>` + gameItems + '</div></div>';
             }
 
             detail.innerHTML = `
@@ -565,14 +1188,16 @@ class ChessApp {
                     <div class="player-detail-info">
                         <h3>${data.title ? `<span class="title-badge">${data.title}</span> ` : ''}${data.name}</h3>
                         <p>${data.country || 'Unknown country'} ${data.birth_year ? '&middot; Born ' + data.birth_year : ''}</p>
-                        ${data.status ? `<p class="player-status-badge status-${data.status}">${data.status.charAt(0).toUpperCase() + data.status.slice(1).replace('-', ' ')}</p>` : ''}
+                        ${data.status ? `<span class="player-status-badge status-${data.status}">${data.status.charAt(0).toUpperCase() + data.status.slice(1).replace('-', ' ')}</span>` : ''}
+                        ${data.role ? `<span class="player-role-badge role-${data.role}">${data.role.charAt(0).toUpperCase() + data.role.slice(1)}</span>` : ''}
                         ${totalRating > 0 ? `<p class="player-total-rating">Total Rating: ${totalRating}</p>` : ''}
                         <div class="player-ratings-grid">
-                            ${data.rating ? `<div class="player-rating-item"><span class="pr-label">Classical</span><span class="pr-value">${data.rating}</span></div>` : ''}
+                            ${data.rating_classical ? `<div class="player-rating-item"><span class="pr-label">Classical</span><span class="pr-value">${data.rating_classical}</span></div>` : ''}
                             ${data.rating_rapid ? `<div class="player-rating-item"><span class="pr-label">Rapid</span><span class="pr-value">${data.rating_rapid}</span></div>` : ''}
                             ${data.rating_blitz ? `<div class="player-rating-item"><span class="pr-label">Blitz</span><span class="pr-value">${data.rating_blitz}</span></div>` : ''}
                             ${data.rating_bullet ? `<div class="player-rating-item"><span class="pr-label">Bullet</span><span class="pr-value">${data.rating_bullet}</span></div>` : ''}
                             ${data.rating_chess960 ? `<div class="player-rating-item"><span class="pr-label">Chess960</span><span class="pr-value">${data.rating_chess960}</span></div>` : ''}
+                            ${data.rating ? `<div class="player-rating-item"><span class="pr-label">Legacy</span><span class="pr-value">${data.rating}</span></div>` : ''}
                         </div>
                     </div>
                 </div>
@@ -603,10 +1228,21 @@ class ChessApp {
                 <div class="stat-label">Total Players</div>
             </div>
             <div class="stat-card">
-                <h3>Most Popular Openings</h3>
+                <h3>Most Played Time Controls</h3>
                 <ul class="stat-list">
-                    ${stats.topOpenings.map(o => `<li><span>${o.eco} - ${o.opening || o.eco}</span><span class="count">${o.count}</span></li>`).join('')}
+                    ${stats.topTimeControls.map(t => {
+                        const label = t.time_control.charAt(0).toUpperCase() + t.time_control.slice(1);
+                        return `<li><span>${label}</span><span class="count">${t.count}</span></li>`;
+                    }).join('')}
                 </ul>
+            </div>
+            <div class="stat-card">
+                <h3>Most Openings Used</h3>
+                <ul class="stat-list stat-list-collapsible">
+                    ${stats.topOpenings.length > 0 ? stats.topOpenings.slice(0, 5).map(o => `<li><span>${o.eco}${o.opening ? ' - ' + o.opening : ''}</span><span class="count">${o.count}</span></li>`).join('') : '<li><span>No openings recorded</span></li>'}
+                    ${stats.topOpenings.length > 5 ? stats.topOpenings.slice(5).map(o => `<li class="stat-list-hidden"><span>${o.eco}${o.opening ? ' - ' + o.opening : ''}</span><span class="count">${o.count}</span></li>`).join('') : ''}
+                </ul>
+                ${stats.topOpenings.length > 5 ? '<button class="stat-show-more" onclick="this.previousElementSibling.classList.toggle(\'expanded\'); this.textContent = this.textContent === \'Show more\' ? \'Show less\' : \'Show more\'">Show more</button>' : ''}
             </div>
             <div class="stat-card">
                 <h3>Games by Year</h3>
@@ -616,9 +1252,11 @@ class ChessApp {
             </div>
             <div class="stat-card">
                 <h3>Recent Games</h3>
-                <ul class="stat-list">
-                    ${stats.recentGames.map(g => `<li><span>${g.white_name} vs ${g.black_name}</span><span class="count">${g.result || '*'}</span></li>`).join('')}
+                <ul class="stat-list stat-list-collapsible">
+                    ${stats.recentGames.slice(0, 5).map(g => `<li><span>${g.white_name} vs ${g.black_name}</span><span class="count">${g.result || '*'}</span></li>`).join('')}
+                    ${stats.recentGames.length > 5 ? stats.recentGames.slice(5).map(g => `<li class="stat-list-hidden"><span>${g.white_name} vs ${g.black_name}</span><span class="count">${g.result || '*'}</span></li>`).join('') : ''}
                 </ul>
+                ${stats.recentGames.length > 5 ? '<button class="stat-show-more" onclick="this.previousElementSibling.classList.toggle(\'expanded\'); this.textContent = this.textContent === \'Show more\' ? \'Show less\' : \'Show more\'">Show more</button>' : ''}
             </div>
         `;
     }
@@ -689,9 +1327,11 @@ class ChessApp {
     // --- Admin: Upload PGN ---
     async uploadPGNFiles(files) {
         const status = document.getElementById('upload-status');
+        const defaultTC = document.getElementById('pgn-default-tc')?.value || '';
         for (const file of files) {
             const formData = new FormData();
             formData.append('pgn', file);
+            if (defaultTC) formData.append('time_control', defaultTC);
             try {
                 const res = await fetch('/api/games/upload-pgn', { method: 'POST', body: formData });
                 const data = await res.json();
@@ -711,12 +1351,13 @@ class ChessApp {
         const text = document.getElementById('pgn-text-input').value;
         if (!text.trim()) return;
         const status = document.getElementById('upload-status');
+        const defaultTC = document.getElementById('pgn-default-tc')?.value || '';
 
         try {
             const res = await fetch('/api/games/upload-pgn', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ pgn: text })
+                body: JSON.stringify({ pgn: text, time_control: defaultTC })
             });
             const data = await res.json();
             if (data.success) {
@@ -746,6 +1387,7 @@ class ChessApp {
         formData.append('country', document.getElementById('player-country').value);
         formData.append('birth_year', document.getElementById('player-birth').value);
         formData.append('status', document.getElementById('player-status').value);
+        formData.append('role', document.getElementById('player-role').value);
 
         const photo = document.getElementById('player-photo').files[0];
         if (photo) formData.append('photo', photo);
@@ -799,7 +1441,7 @@ class ChessApp {
                         <button class="admin-btn-edit" data-id="${p.id}">Edit</button>
                         <button class="admin-btn-delete" data-id="${p.id}">Delete</button>
                     </div>
-                    <div class="game-item-players">${p.title ? `<span class="title-badge">${p.title}</span> ` : ''}${p.name}</div>
+                    <div class="game-item-players">${p.title ? `<span class="title-badge">${p.title}</span> ` : ''}${p.name}${p.role ? ` <span class="player-role-badge role-${p.role}">${p.role.charAt(0).toUpperCase() + p.role.slice(1)}</span>` : ''}</div>
                     <div class="game-item-event">${p.country || ''} ${p.birth_year ? 'b. ' + p.birth_year : ''}</div>
                     ${ratings.length ? `<div class="admin-player-ratings">${ratings.join(' · ')}</div>` : ''}
                 </div>
@@ -834,6 +1476,7 @@ class ChessApp {
             document.getElementById('edit-player-country').value = data.country || '';
             document.getElementById('edit-player-birth').value = data.birth_year || '';
             document.getElementById('edit-player-status').value = data.status || 'active';
+            document.getElementById('edit-player-role').value = data.role || '';
             document.getElementById('edit-rating').value = data.rating || '';
             document.getElementById('edit-rating-rapid').value = data.rating_rapid || '';
             document.getElementById('edit-rating-blitz').value = data.rating_blitz || '';
@@ -854,6 +1497,7 @@ class ChessApp {
         formData.append('country', document.getElementById('edit-player-country').value);
         formData.append('birth_year', document.getElementById('edit-player-birth').value);
         formData.append('status', document.getElementById('edit-player-status').value);
+        formData.append('role', document.getElementById('edit-player-role').value);
         formData.append('rating', document.getElementById('edit-rating').value);
         formData.append('rating_rapid', document.getElementById('edit-rating-rapid').value);
         formData.append('rating_blitz', document.getElementById('edit-rating-blitz').value);
@@ -877,6 +1521,67 @@ class ChessApp {
     }
 
     // --- Admin: Manage Games ---
+    async openEditGameModal(id) {
+        try {
+            const res = await fetch(`/api/games/${id}`);
+            const game = await res.json();
+            document.getElementById('edit-game-id').value = game.id;
+            document.getElementById('edit-game-white-name').value = game.white_name || '';
+            document.getElementById('edit-game-black-name').value = game.black_name || '';
+            document.getElementById('edit-game-white-elo').value = game.white_elo || '';
+            document.getElementById('edit-game-black-elo').value = game.black_elo || '';
+            document.getElementById('edit-game-time-control').value = game.time_control || '';
+            document.getElementById('edit-game-result').value = game.result || '*';
+            document.getElementById('edit-game-date').value = game.date || '';
+            document.getElementById('edit-game-event').value = game.event_name || '';
+            document.getElementById('edit-game-eco').value = game.eco || '';
+            document.getElementById('edit-game-opening').value = game.opening || '';
+            document.getElementById('edit-game-modal').style.display = 'flex';
+        } catch (e) {
+            alert('Failed to load game');
+        }
+    }
+
+    async saveEditGame() {
+        const id = document.getElementById('edit-game-id').value;
+        const whiteElo = document.getElementById('edit-game-white-elo').value;
+        const blackElo = document.getElementById('edit-game-black-elo').value;
+        const body = {
+            white_name: document.getElementById('edit-game-white-name').value,
+            black_name: document.getElementById('edit-game-black-name').value,
+            white_elo: whiteElo !== '' ? parseInt(whiteElo) : null,
+            black_elo: blackElo !== '' ? parseInt(blackElo) : null,
+            time_control: document.getElementById('edit-game-time-control').value,
+            result: document.getElementById('edit-game-result').value,
+            date: document.getElementById('edit-game-date').value,
+            event_name: document.getElementById('edit-game-event').value,
+            eco: document.getElementById('edit-game-eco').value,
+            opening: document.getElementById('edit-game-opening').value
+        };
+        try {
+            const res = await fetch(`/api/games/${id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(body)
+            });
+            if (!res.ok) {
+                const err = await res.json().catch(() => ({ error: 'Server error' }));
+                alert('Failed to save game: ' + (err.error || res.statusText));
+                return;
+            }
+            const data = await res.json();
+            if (data.success) {
+                document.getElementById('edit-game-modal').style.display = 'none';
+                this.loadGames();
+                if (this.currentGameId == id) this.loadGameById(parseInt(id));
+            } else {
+                alert('Failed to save game: ' + (data.error || 'Unknown error'));
+            }
+        } catch (e) {
+            alert('Failed to save game: ' + e.message);
+        }
+    }
+
     async loadAdminGames() {
         try {
             const res = await fetch('/api/games?limit=100');
@@ -889,8 +1594,9 @@ class ChessApp {
             list.innerHTML = data.games.map(g => `
                 <div class="game-item" data-id="${g.id}">
                     <button class="game-item-delete" data-id="${g.id}">Delete</button>
+                    <button class="game-edit-btn" onclick="event.stopPropagation(); app.openEditGameModal(${g.id})" title="Edit game">✎</button>
                     <div class="game-item-players">${g.white_name} vs ${g.black_name}</div>
-                    <div class="game-item-event">${g.event_name || ''} ${g.date || ''}</div>
+                    <div class="game-item-event">${g.event_name || ''} ${this.formatDate(g.date)}</div>
                 </div>
             `).join('');
 
