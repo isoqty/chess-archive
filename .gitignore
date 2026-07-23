@@ -7,3 +7,10 @@ public/js/stockfish-18-asm.js
 public/js/stockfish-18-single.js
 public/js/stockfish-18-single.wasm
 public/test-engine.html
+
+# wrangler files
+.wrangler
+.dev.vars*
+!.dev.vars.example
+.env*
+!.env.example
